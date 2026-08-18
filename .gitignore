@@ -1,0 +1,5 @@
+node_modules
+dist
+.validacion
+*.local
+.DS_Store
