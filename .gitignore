@@ -3,3 +3,6 @@ dist
 .validacion
 *.local
 .DS_Store
+
+.vercel
+.env*
