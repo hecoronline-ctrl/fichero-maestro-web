@@ -28,6 +28,39 @@ cuestión de minutos si hiciera falta.
 | Leroy Merlin | ES, IT, FR, PT (4 ficheros) | ALL (1 fichero) |
 | Makro | — | ES, IT, DE, PT (flujo propio) |
 
+## Precios y stock
+
+La tarjeta **Precios y stock** hace en la web lo que hacía
+`_sistema/tools/Actualizar-Ofertas.ps1` en el escritorio: coge los dos CSV
+quincenales, actualiza la hoja `Ofertas` del maestro y deja el maestro listo para
+generar las ofertas de cualquier portal.
+
+- **CSV de stock**: `Stock por país y color - TwinThink (...).csv`
+- **CSV de precios**: `pending_price_actions_AAAA-MM-DD.csv`
+
+Reglas, las mismas que el sistema de escritorio: España vale para España,
+Portugal y Leroy; Italia para Italia; Francia para Francia; Alemania y Reino
+Unido no se tocan. El cruce es por número de modelo (`001`, `003`, `007`, `010`,
+`011`) más color (`G`, `N`, `B`, `B-N`), no por SKU completo, porque el modelo 003
+es `EMD.003` en los CSV y `SYN.003` en el maestro. El color `Madera` se ignora.
+
+El maestro actualizado queda guardado en el navegador y se ofrece para descargar,
+para poder devolverlo a `Sistema/FICHERO_MAESTRO2.xlsx`.
+
+> **Corrige un fallo del script de escritorio.** El CSV de stock cambió de formato
+> hacia el 26/06/2026: antes traía `Producto=1` y `SKU=EMD.001`, y desde entonces
+> trae `Producto=R.EMD.001` y `SKU=1`. `Actualizar-Ofertas.ps1` solo buscaba el
+> número de modelo en `SKU` cuando `Producto` no era de tres cifras, así que con el
+> formato nuevo dejó de cruzar y **el stock se quedó sin actualizar desde
+> entonces**. Aquí el número de modelo se busca en las dos columnas, así que valen
+> los dos formatos.
+
+Para comprobarlo contra unos CSV concretos:
+
+```bash
+npx tsx scripts/probar-ofertas.ts <maestro.xlsx> <stock.csv> <precios.csv> [Marketplace]
+```
+
 Amazon queda pendiente: no estaba implementado en el sistema de escritorio y hace
 falta reunir material (plantillas de ES/IT/PT y SKU/ASIN de esos países).
 

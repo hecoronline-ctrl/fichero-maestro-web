@@ -4,7 +4,8 @@ import { readMaestro } from './engine/maestro';
 import type { Maestro } from './engine/maestro';
 import { generar } from './engine/generar';
 import { generarMakro } from './engine/makro';
-import { descargar, fetchAsset } from './engine/excel';
+import { aplicarPreciosYStock } from './engine/ofertas';
+import { blobXlsx, descargar, fetchAsset } from './engine/excel';
 import { CLAVE_MAESTRO, borrar, claveMakro, guardar, leer } from './store';
 import './App.css';
 
@@ -17,6 +18,9 @@ type Linea = { texto: string; tipo: 'info' | 'ok' | 'error' };
 
 export default function App() {
   const [maestro, setMaestro] = useState<Maestro | null>(null);
+  // Los bytes del .xlsx, aparte del maestro ya leido: hacen falta para reescribir
+  // la hoja Ofertas cuando se aplican los CSV de precio y stock.
+  const [bytesMaestro, setBytesMaestro] = useState<Uint8Array | null>(null);
   const [origenMaestro, setOrigenMaestro] = useState<string>('cargando...');
   const [propio, setPropio] = useState(false);
   const [ocupado, setOcupado] = useState(false);
@@ -33,10 +37,13 @@ export default function App() {
       const guardado = await leer(CLAVE_MAESTRO);
       if (guardado) {
         setMaestro(readMaestro(guardado.bytes));
+        setBytesMaestro(guardado.bytes);
         setOrigenMaestro(guardado.nombre);
         setPropio(true);
       } else {
-        setMaestro(readMaestro(await fetchAsset(MAESTRO_INCLUIDO)));
+        const bytes = new Uint8Array(await fetchAsset(MAESTRO_INCLUIDO));
+        setMaestro(readMaestro(bytes));
+        setBytesMaestro(bytes);
         setOrigenMaestro('FICHERO_MAESTRO2.xlsx (incluido)');
         setPropio(false);
       }
@@ -71,6 +78,31 @@ export default function App() {
     log('Se vuelve al maestro incluido con la web.', 'ok');
   };
 
+  // ---- CSV quincenales de precio y stock -> hoja Ofertas del maestro ----
+  const aplicarPrecioStock = async (csvStock: string, csvPrecios: string) => {
+    if (!bytesMaestro) return;
+    setOcupado(true);
+    try {
+      const r = aplicarPreciosYStock(bytesMaestro, csvStock, csvPrecios);
+      await guardar(CLAVE_MAESTRO, `FICHERO_MAESTRO2.xlsx (${hoy()})`, r.bytes);
+      await cargarMaestro();
+      log(
+        `Ofertas actualizadas: ${r.precios} precios y ${r.stocks} stocks. ` +
+          `${r.sinTocar} filas de DE/UK sin tocar.`,
+        'ok',
+      );
+      for (const a of r.avisos) log(`   ${a}`);
+      setFicheros([
+        { nombre: 'FICHERO_MAESTRO2.xlsx', blob: blobXlsx(r.bytes) },
+      ]);
+      log('Ya puedes generar las ofertas de cualquier portal.');
+    } catch (e) {
+      log(`No se pudieron aplicar los CSV: ${mensaje(e)}`, 'error');
+    } finally {
+      setOcupado(false);
+    }
+  };
+
   return (
     <div className="app">
       <header>
@@ -88,6 +120,8 @@ export default function App() {
         onSubir={subirMaestro}
         onVolver={volverAlIncluido}
       />
+
+      <PreciosStock ocupado={ocupado} listo={bytesMaestro !== null} onAplicar={aplicarPrecioStock} />
 
       <Generador
         maestro={maestro}
@@ -150,6 +184,43 @@ function Maestros(props: {
           e.target.value = '';
         }}
       />
+    </section>
+  );
+}
+
+// ------------------------------------------------------- precios y stock
+
+function PreciosStock(props: {
+  ocupado: boolean;
+  listo: boolean;
+  onAplicar: (csvStock: string, csvPrecios: string) => void;
+}) {
+  const [stock, setStock] = useState<File | null>(null);
+  const [precio, setPrecio] = useState<File | null>(null);
+
+  const aplicar = async () => {
+    const csvStock = stock ? await stock.text() : '';
+    const csvPrecios = precio ? await precio.text() : '';
+    props.onAplicar(csvStock, csvPrecios);
+  };
+
+  return (
+    <section className="tarjeta">
+      <h2>Precios y stock</h2>
+      <p className="pista">
+        Los dos CSV de cada quincena. Actualizan la hoja Ofertas del maestro y con eso ya se pueden
+        generar las ofertas de Leroy y del resto de portales. Los precios de España valen también
+        para Portugal y para Leroy; Alemania y Reino Unido no se tocan.
+      </p>
+      <div className="fila">
+        <ArchivoCsv etiqueta="CSV de stock" file={stock} onChange={setStock} />
+        <ArchivoCsv etiqueta="CSV de precios" file={precio} onChange={setPrecio} />
+      </div>
+      <div className="fila">
+        <button onClick={aplicar} disabled={props.ocupado || !props.listo || (!stock && !precio)}>
+          Aplicar al maestro
+        </button>
+      </div>
     </section>
   );
 }
@@ -428,4 +499,10 @@ function mensaje(e: unknown): string {
 
 function acortar(s: string): string {
   return s.length > 28 ? `${s.slice(0, 25)}...` : s;
+}
+
+/** dd/mm, para marcar en el chip cuando se aplicaron los CSV. */
+function hoy(): string {
+  const d = new Date();
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
