@@ -7,6 +7,7 @@ import { generarMakro } from './engine/makro';
 import { aplicarPreciosYStock } from './engine/ofertas';
 import { blobXlsx, descargar, fetchAsset } from './engine/excel';
 import { CLAVE_MAESTRO, borrar, claveMakro, guardar, leer } from './store';
+import Productos from './Productos';
 import './App.css';
 
 const MAESTRO_INCLUIDO = 'datos/FICHERO_MAESTRO2.xlsx';
@@ -16,7 +17,15 @@ const PAISES_MAKRO = getMarketplace('Makro')!.paises;
 type Fichero = { nombre: string; blob: Blob };
 type Linea = { texto: string; tipo: 'info' | 'ok' | 'error' };
 
+type Vista = 'generar' | 'productos' | 'datos';
+const MENU: { id: Vista; nombre: string; pista: string }[] = [
+  { id: 'generar', nombre: 'Generar ficheros', pista: 'Catálogos y ofertas de cada portal' },
+  { id: 'productos', nombre: 'Productos', pista: 'Ver los datos del maestro' },
+  { id: 'datos', nombre: 'Datos de origen', pista: 'Maestro, precios y stock' },
+];
+
 export default function App() {
+  const [vista, setVista] = useState<Vista>('generar');
   const [maestro, setMaestro] = useState<Maestro | null>(null);
   // Los bytes del .xlsx, aparte del maestro ya leido: hacen falta para reescribir
   // la hoja Ofertas cuando se aplican los CSV de precio y stock.
@@ -103,44 +112,81 @@ export default function App() {
     }
   };
 
+  const actual = MENU.find((m) => m.id === vista)!;
+
   return (
-    <div className="app">
-      <header>
-        <h1>TwinThink · Marketplaces</h1>
-        <p className="sub">
-          Genera los ficheros de catálogo y oferta de cada portal desde el fichero maestro. Todo
-          ocurre en tu navegador: los datos no se envían a ningún servidor.
-        </p>
-      </header>
+    <div className="marco">
+      <aside className="menu">
+        <div className="marca">
+          <strong>TwinThink</strong>
+          <span>Marketplaces</span>
+        </div>
+        <nav>
+          {MENU.map((m) => (
+            <button
+              key={m.id}
+              className={`nav ${m.id === vista ? 'activo' : ''}`}
+              onClick={() => setVista(m.id)}
+            >
+              <span className="nav-nombre">{m.nombre}</span>
+              <span className="nav-pista">{m.pista}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="pie-menu">
+          <span className={`chip ${propio ? 'chip-propio' : ''}`}>{origenMaestro}</span>
+          <p className="pista">Todo ocurre en tu navegador: los datos no salen de tu equipo.</p>
+        </div>
+      </aside>
 
-      <Maestros
-        origen={origenMaestro}
-        propio={propio}
-        ocupado={ocupado}
-        onSubir={subirMaestro}
-        onVolver={volverAlIncluido}
-      />
+      <main className="app">
+        <header>
+          <h1>{actual.nombre}</h1>
+          <p className="sub">{actual.pista}</p>
+        </header>
 
-      <PreciosStock ocupado={ocupado} listo={bytesMaestro !== null} onAplicar={aplicarPrecioStock} />
+        {vista === 'productos' && <Productos maestro={maestro} />}
 
-      <Generador
-        maestro={maestro}
-        ocupado={ocupado}
-        setOcupado={setOcupado}
-        log={log}
-        onFicheros={setFicheros}
-      />
+        {vista === 'datos' && (
+          <>
+            <Maestros
+              origen={origenMaestro}
+              propio={propio}
+              ocupado={ocupado}
+              onSubir={subirMaestro}
+              onVolver={volverAlIncluido}
+            />
+            <PreciosStock
+              ocupado={ocupado}
+              listo={bytesMaestro !== null}
+              onAplicar={aplicarPrecioStock}
+            />
+            <Resultados ficheros={ficheros} />
+            <Registro lineas={lineas} onLimpiar={() => setLineas([])} />
+          </>
+        )}
 
-      <MakroPanel
-        maestro={maestro}
-        ocupado={ocupado}
-        setOcupado={setOcupado}
-        log={log}
-        onFicheros={setFicheros}
-      />
-
-      <Resultados ficheros={ficheros} />
-      <Registro lineas={lineas} onLimpiar={() => setLineas([])} />
+        {vista === 'generar' && (
+          <>
+            <Generador
+              maestro={maestro}
+              ocupado={ocupado}
+              setOcupado={setOcupado}
+              log={log}
+              onFicheros={setFicheros}
+            />
+            <MakroPanel
+              maestro={maestro}
+              ocupado={ocupado}
+              setOcupado={setOcupado}
+              log={log}
+              onFicheros={setFicheros}
+            />
+            <Resultados ficheros={ficheros} />
+            <Registro lineas={lineas} onLimpiar={() => setLineas([])} />
+          </>
+        )}
+      </main>
     </div>
   );
 }
