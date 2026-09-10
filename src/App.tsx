@@ -4,6 +4,7 @@ import { readMaestro } from './engine/maestro';
 import type { Maestro } from './engine/maestro';
 import { generar } from './engine/generar';
 import { generarMakro } from './engine/makro';
+import { PAISES_AMAZON, generarAmazon } from './engine/amazon';
 import { aplicarPreciosYStock } from './engine/ofertas';
 import { blobXlsx, descargar, fetchAsset } from './engine/excel';
 import { CLAVE_MAESTRO, borrar, claveMakro, guardar, leer } from './store';
@@ -176,6 +177,13 @@ export default function App() {
               onFicheros={setFicheros}
             />
             <MakroPanel
+              maestro={maestro}
+              ocupado={ocupado}
+              setOcupado={setOcupado}
+              log={log}
+              onFicheros={setFicheros}
+            />
+            <AmazonPanel
               maestro={maestro}
               ocupado={ocupado}
               setOcupado={setOcupado}
@@ -459,6 +467,83 @@ function MakroPanel(props: {
         </button>
         <button className="secundario" onClick={restablecer} disabled={props.ocupado}>
           Restablecer plantillas
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- amazon
+
+function AmazonPanel(props: {
+  maestro: Maestro | null;
+  ocupado: boolean;
+  setOcupado: (b: boolean) => void;
+  log: (t: string, tipo?: Linea['tipo']) => void;
+  onFicheros: (f: Fichero[]) => void;
+}) {
+  const [pais, setPais] = useState('Todos');
+  const [tipo, setTipo] = useState<'catalogo' | 'ofertas'>('catalogo');
+
+  const generar = async () => {
+    if (!props.maestro) return;
+    props.setOcupado(true);
+    const salidas: Fichero[] = [];
+    try {
+      const lista = pais === 'Todos' ? PAISES_AMAZON : [pais];
+      for (const p of lista) {
+        try {
+          const r = generarAmazon(tipo, p, props.maestro);
+          salidas.push({ nombre: r.nombre, blob: r.blob });
+          props.log(`Amazon ${p} ${tipo}: ${r.filas} filas → ${r.nombre}`, 'ok');
+          for (const a of r.avisos) props.log(`   aviso: ${a}`);
+        } catch (e) {
+          props.log(`Amazon ${p} ${tipo}: ${mensaje(e)}`, 'error');
+        }
+      }
+      props.onFicheros(salidas);
+      if (salidas.length === 1) descargar(salidas[0].blob, salidas[0].nombre);
+    } finally {
+      props.setOcupado(false);
+    }
+  };
+
+  return (
+    <section className="tarjeta">
+      <div className="cabecera-registro">
+        <h2>Amazon</h2>
+        <span className="etiqueta-beta">Beta</span>
+      </div>
+      <p className="pista">
+        Flat file <code>.txt</code> tabulado, el que se sube en Seller Central → Cargar archivos de
+        inventario. Sale con los datos buenos del maestro, pero <strong>todavía no está validado
+        contra Amazon</strong>: falta un flat file de ejemplo de ES/IT/PT y los SKU y ASIN de esos
+        países (el maestro solo trae los de DE, FR y UK, así que los demás se deducen). Revísalo
+        antes de subir nada.
+      </p>
+      <div className="fila">
+        <label>
+          Tipo
+          <select value={tipo} onChange={(e) => setTipo(e.target.value as 'catalogo' | 'ofertas')}>
+            <option value="catalogo">Catálogo</option>
+            <option value="ofertas">Precio y stock</option>
+          </select>
+        </label>
+        <label>
+          País
+          <select value={pais} onChange={(e) => setPais(e.target.value)}>
+            <option value="Todos">Todos</option>
+            {PAISES_AMAZON.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="fila">
+        <button onClick={generar} disabled={props.ocupado || !props.maestro}>
+          Generar
         </button>
       </div>
     </section>
