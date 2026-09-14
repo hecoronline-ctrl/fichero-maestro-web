@@ -1,5 +1,8 @@
 # TwinThink · Marketplaces (web)
 
+**Pruébalo funcionando: https://fichero-maestro-web.vercel.app/** — se abre en el
+navegador, no hay que instalar nada ni crear cuenta.
+
 Versión web del sistema de generación de ficheros de marketplaces. Genera los
 ficheros de **catálogo** y **oferta** a partir del `FICHERO_MAESTRO2.xlsx`.
 
