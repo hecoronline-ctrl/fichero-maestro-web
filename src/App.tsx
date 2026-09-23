@@ -219,7 +219,7 @@ function Maestros(props: {
       <div className="fila">
         <span className={`chip ${props.propio ? 'chip-propio' : ''}`}>{props.origen}</span>
         <button onClick={() => input.current?.click()} disabled={props.ocupado}>
-          Usar mi maestro
+          Fichero maestro
         </button>
         {props.propio && (
           <button className="secundario" onClick={props.onVolver} disabled={props.ocupado}>

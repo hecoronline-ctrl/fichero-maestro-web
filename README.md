@@ -71,7 +71,7 @@ falta reunir material (plantillas de ES/IT/PT y SKU/ASIN de esos países).
 
 El navegador guarda en IndexedDB:
 
-- **El maestro** que subas con "Usar mi maestro" (si no, se usa el incluido).
+- **El maestro** que subas con "Fichero maestro" (si no, se usa el incluido).
 - **Las plantillas de Makro ya actualizadas.** En el sistema de escritorio la
   plantilla base se actualizaba en sitio; aquí no hay disco, así que la versión
   actualizada se guarda en el navegador y pasa a ser la base de la siguiente vez.
@@ -137,4 +137,4 @@ Cada `git push` vuelve a desplegar automáticamente.
 
 El maestro incluido está en `public/datos/FICHERO_MAESTRO2.xlsx`. Para que tu
 equipo vea una versión nueva, reemplaza ese fichero y haz push: Vercel redespliega
-solo. Mientras tanto, cada persona puede subir el suyo con "Usar mi maestro".
+solo. Mientras tanto, cada persona puede subir el suyo con "Fichero maestro".
