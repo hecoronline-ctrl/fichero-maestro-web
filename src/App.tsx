@@ -5,6 +5,7 @@ import type { Maestro } from './engine/maestro';
 import { generar } from './engine/generar';
 import { generarMakro } from './engine/makro';
 import { PAISES_AMAZON, generarAmazon } from './engine/amazon';
+import { generarAmazonEsLoader } from './engine/amazonLoader';
 import { aplicarPreciosYStock } from './engine/ofertas';
 import { blobXlsx, descargar, fetchAsset } from './engine/excel';
 import { CLAVE_MAESTRO, borrar, claveMakro, guardar, leer } from './store';
@@ -493,7 +494,14 @@ function AmazonPanel(props: {
       const lista = pais === 'Todos' ? PAISES_AMAZON : [pais];
       for (const p of lista) {
         try {
-          const r = generarAmazon(tipo, p, props.maestro);
+          // Amazon ES precio y stock: plantilla oficial de Seller Central (ListingLoader)
+          const r =
+            tipo === 'ofertas' && p === 'ES'
+              ? generarAmazonEsLoader(
+                  await fetchAsset('plantillas/Amazon/ListingLoader_ES.xlsm'),
+                  props.maestro,
+                )
+              : generarAmazon(tipo, p, props.maestro);
           salidas.push({ nombre: r.nombre, blob: r.blob });
           props.log(`Amazon ${p} ${tipo}: ${r.filas} filas → ${r.nombre}`, 'ok');
           for (const a of r.avisos) props.log(`   aviso: ${a}`);
@@ -515,11 +523,11 @@ function AmazonPanel(props: {
         <span className="etiqueta-beta">Beta</span>
       </div>
       <p className="pista">
-        Flat file <code>.txt</code> tabulado, el que se sube en Seller Central → Cargar archivos de
-        inventario. Sale con los datos buenos del maestro, pero <strong>todavía no está validado
-        contra Amazon</strong>: falta un flat file de ejemplo de ES/IT/PT y los SKU y ASIN de esos
-        países (el maestro solo trae los de DE, FR y UK, así que los demás se deducen). Revísalo
-        antes de subir nada.
+        <strong>España · Precio y stock</strong> sale en la plantilla oficial de Seller Central
+        (<code>ListingLoader.xlsm</code>, para productos que ya están en Amazon): solo incluye las
+        referencias con SKU de Amazon ES en el maestro. El resto sale como flat file{' '}
+        <code>.txt</code> tabulado y <strong>todavía no está validado contra Amazon</strong>: faltan
+        las plantillas de los demás países y sus SKU y ASIN. Revísalo antes de subir nada.
       </p>
       <div className="fila">
         <label>

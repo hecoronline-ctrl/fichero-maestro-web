@@ -175,6 +175,17 @@ export const MAKRO_SHIPPING: Record<string, string> = {
   '011': 'LARGE',
 };
 
+/**
+ * Amazon ES: plantilla de envio por modelo (nombres exactos de la cuenta, tal y como
+ * salen en el desplegable del ListingLoader). El 003 no aparece en ninguna.
+ */
+export const AMAZON_ES_ENVIO: Record<string, string> = {
+  '001': 'Nannuk S (001-006-022)',
+  '007': 'Nannuk M (007-010)',
+  '010': 'Nannuk M (007-010)',
+  '011': 'Nannuk L (011)',
+};
+
 /** Descuentos por cantidad sobre el neto: 2+ -3%, 3+ -4%, 4+ -5%, 5+ -6%. */
 export const MAKRO_DESCUENTOS: { etiqueta: string; f: number }[] = [
   { etiqueta: 'Net Unit Price for 2+ pcs', f: 0.97 },
