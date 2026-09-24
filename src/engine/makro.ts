@@ -6,13 +6,20 @@
  *   - CSV de PRECIO (con IVA): cambia el precio solo de los productos que trae,
  *     Net price = applied_price / (1 + IVA del pais).
  *   - CSV de STOCK (snapshot): ajusta Quantity solo de los que trae (Madera se ignora).
- * Ademas fuerza el Shipping Group por modelo y recalcula los descuentos por cantidad.
+ * Ademas fuerza el Shipping Group por modelo, el destino y el almacen de salida del
+ * pais (Origin + plazo de preparacion, ver MAKRO_ORIGENES) y recalcula los descuentos
+ * por cantidad.
  *
  * Diferencia con la version de escritorio: alli la plantilla base se actualizaba EN
  * SITIO. Aqui no hay disco, asi que la plantilla actualizada se guarda en el navegador
  * (ver store.ts) y esa pasa a ser la base de la siguiente vez.
  */
-import { MAKRO_DESCUENTOS, MAKRO_PAIS_CFG, MAKRO_SHIPPING } from '../config/marketplaces';
+import {
+  MAKRO_DESCUENTOS,
+  MAKRO_ORIGENES,
+  MAKRO_PAIS_CFG,
+  MAKRO_SHIPPING,
+} from '../config/marketplaces';
 import { campo, parseCsv } from './csv';
 import type { FilaMaestro } from './maestro';
 import { blobXlsx, getColIndexByLabel, stamp } from './excel';
@@ -167,9 +174,15 @@ export function generarMakro(
   const cQty = col('Quantity');
   const cNet = col('Net price');
   const cShip = col('Shipping Group');
+  const cDest = col('Destination');
+  const cOrig = col('Origin');
+  const cMin = col('Processing time min');
+  const cMax = col('Processing time max');
   if (!cGtin || !cNet) {
     throw new Error('La plantilla de Makro no tiene las columnas GTIN / Net price.');
   }
+  const origen = MAKRO_ORIGENES[cfg.origen];
+  if (!origen) throw new Error(`Almacen de salida desconocido: ${cfg.origen}`);
 
   // EAN -> modelo, para forzar el Shipping Group correcto por norma.
   const eanModelo = new Map<string, string>();
@@ -196,6 +209,11 @@ export function generarMakro(
       const m = eanModelo.get(g);
       if (m && MAKRO_SHIPPING[m]) hoja.set(r, cShip, MAKRO_SHIPPING[m]);
     }
+    // destino y almacen de salida: norma fija por pais
+    if (cDest) hoja.set(r, cDest, `${pais}_MAIN`);
+    if (cOrig) hoja.set(r, cOrig, origen.origin);
+    if (cMin) hoja.set(r, cMin, origen.min);
+    if (cMax) hoja.set(r, cMax, origen.max);
     // descuentos por cantidad sobre el neto ACTUAL (todos los productos)
     const net = hoja.get(r, cNet);
     if (net !== null && String(net) !== '') {

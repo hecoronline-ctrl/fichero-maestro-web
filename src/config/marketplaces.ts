@@ -124,7 +124,7 @@ export const MARKETPLACES: Marketplace[] = [
     id: 'Makro',
     nombre: 'Makro',
     familia: 'Makro',
-    paises: ['ES', 'IT', 'DE', 'PT'],
+    paises: ['ES', 'PT', 'IT', 'FR', 'DE', 'NL'],
     flujoPropio: true,
   },
 ];
@@ -139,15 +139,31 @@ export function getPaises(mp: Marketplace, tipo: 'catalogo' | 'ofertas'): string
   return bloque?.paises ?? mp.paises;
 }
 
-/** IVA por pais para Makro (el precio del CSV viene CON IVA). */
+/**
+ * Makro por pais de destino.
+ *   vat        IVA del pais: Net price = precio con IVA del CSV / vat.
+ *   precioPais valor de la columna `country` del CSV de precios que se usa.
+ *   stockPais  valor de la columna `Pais` del CSV de stock = almacen desde el que se envia.
+ *   origen     almacen de salida (ver MAKRO_ORIGENES).
+ * Envios: Francia -> Francia, Alemania y Holanda; Espana -> Espana y Portugal; Italia -> Italia.
+ */
 export const MAKRO_PAIS_CFG: Record<
   string,
-  { vat: number; precioPais: string; stockPais: string }
+  { vat: number; precioPais: string; stockPais: string; origen: string }
 > = {
-  ES: { vat: 1.21, precioPais: 'ES', stockPais: 'ES/PT' },
-  IT: { vat: 1.22, precioPais: 'IT', stockPais: 'Italia' },
-  PT: { vat: 1.23, precioPais: 'ES', stockPais: 'ES/PT' },
-  DE: { vat: 1.19, precioPais: 'DE', stockPais: 'Alemania' },
+  ES: { vat: 1.21, precioPais: 'ES', stockPais: 'ES/PT', origen: 'ES' },
+  PT: { vat: 1.23, precioPais: 'ES', stockPais: 'ES/PT', origen: 'ES' },
+  IT: { vat: 1.22, precioPais: 'IT', stockPais: 'Italia', origen: 'IT' },
+  FR: { vat: 1.2, precioPais: 'FR', stockPais: 'Francia', origen: 'FR' },
+  DE: { vat: 1.19, precioPais: 'DE', stockPais: 'Francia', origen: 'FR' },
+  NL: { vat: 1.21, precioPais: 'NL', stockPais: 'Francia', origen: 'FR' },
+};
+
+/** Almacen de salida -> columna Origin y plazo de preparacion (dias). */
+export const MAKRO_ORIGENES: Record<string, { origin: string; min: number; max: number }> = {
+  ES: { origin: 'ES_MAIN', min: 2, max: 3 },
+  IT: { origin: 'IT_MAIN', min: 2, max: 3 },
+  FR: { origin: 'FR_MAIN', min: 1, max: 2 },
 };
 
 /** Shipping Group: norma fija por modelo (las plantillas traian errores). */

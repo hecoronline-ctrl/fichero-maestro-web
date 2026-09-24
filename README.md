@@ -29,7 +29,21 @@ cuestión de minutos si hiciera falta.
 | Portal | Catálogo | Ofertas |
 |---|---|---|
 | Leroy Merlin | ES, IT, FR, PT (4 ficheros) | ALL (1 fichero) |
-| Makro | — | ES, IT, DE, PT (flujo propio) |
+| Makro | — | ES, PT, IT, FR, DE, NL (flujo propio) |
+
+**Makro, reglas por país** (`MAKRO_PAIS_CFG` y `MAKRO_ORIGENES` en `src/config/marketplaces.ts`):
+
+| Destino | Sale de | Origin | Preparación | Precio del CSV | Stock del CSV | IVA |
+|---|---|---|---|---|---|---|
+| ES | España | ES_MAIN | 2-3 días | ES | ES/PT | 21 % |
+| PT | España | ES_MAIN | 2-3 días | ES | ES/PT | 23 % |
+| IT | Italia | IT_MAIN | 2-3 días | IT | Italia | 22 % |
+| FR | Francia | FR_MAIN | 1-2 días | FR | Francia | 20 % |
+| DE | Francia | FR_MAIN | 1-2 días | DE | Francia | 19 % |
+| NL | Francia | FR_MAIN | 1-2 días | NL | Francia | 21 % |
+
+Net price = precio con IVA del CSV / IVA del país de destino. Si el CSV de precios no
+trae filas de ese país (hoy DE y NL), el precio no se toca.
 
 ## Precios y stock
 
