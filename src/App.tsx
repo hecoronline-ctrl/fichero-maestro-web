@@ -443,10 +443,8 @@ function MakroPanel(props: {
   return (
     <section className="tarjeta">
       <h2>Makro · precio y stock</h2>
-      <p className="pista">
-        Makro no se reconstruye desde el maestro: su plantilla ya trae los precios buenos. Solo se
-        cambia lo que venga en los CSV. Lo que no aparezca, no se toca.
-      </p>
+      {/* Makro no se reconstruye desde el maestro: su plantilla ya trae los precios
+          buenos. Solo se cambia lo que venga en los CSV; lo que no aparezca, no se toca. */}
       <div className="fila">
         <label>
           País
