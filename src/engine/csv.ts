@@ -83,6 +83,26 @@ function tokenizar(texto: string, delim: string): string[][] {
   return filas;
 }
 
+/**
+ * CSV único de precios y stock (export "nexus_precios_stock"):
+ *   SKU,Color,Pais,Moneda,Precio_Base,Precio_Aplicado,Stock
+ * Pais = ES / IT / FR / UK. Sirve a la vez de CSV de precios y de CSV de stock.
+ */
+export function esCsvCombinado(texto: string): boolean {
+  const cab = (texto.replace(/^﻿/, '').split(/\r?\n/, 1)[0] ?? '').toLowerCase();
+  return cab.includes('precio_aplicado') && cab.includes('stock');
+}
+
+/**
+ * Textos de precio y stock a partir de los dos huecos de subida: si en uno se ha
+ * subido el CSV único, vale también para el otro hueco si está vacío.
+ */
+export function repartirCsv(precio: string, stock: string): { precio: string; stock: string } {
+  if (!precio.trim() && esCsvCombinado(stock)) precio = stock;
+  if (!stock.trim() && esCsvCombinado(precio)) stock = precio;
+  return { precio, stock };
+}
+
 /** Busca una cabecera de forma tolerante (sin distinguir mayúsculas ni espacios). */
 export function campo(fila: FilaCsv, ...nombres: string[]): string {
   for (const n of nombres) {

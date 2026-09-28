@@ -110,17 +110,36 @@ export function leerPrecios(
   const r = new Map<string, number>();
   if (!csv) return r;
   for (const fila of parseCsv(csv)) {
-    if (campo(fila, 'country').trim().toUpperCase() !== precioPais.toUpperCase()) continue;
+    const pais = campo(fila, 'country', 'Pais', 'País').trim().toUpperCase();
+    if (pais !== precioPais.toUpperCase()) continue;
     const sku = campo(fila, 'sku');
     const mod = modeloDeSku(sku);
     const col = colorDeSufijo(sufijoDeSku(sku));
     if (!mod || !col) continue;
     const ean = cat.get(`${mod}|${col}`);
-    if (!ean) continue;
-    const ap = campo(fila, 'applied_price').trim().replace(',', '.');
-    if (ap !== '') r.set(ean, Number(ap));
+    if (!ean || r.has(ean)) continue; // repetido: se queda el primero (igual que en Ofertas)
+    const ap = campo(fila, 'applied_price', 'Precio_Aplicado').trim().replace(',', '.');
+    if (ap !== '' && Number.isFinite(Number(ap))) r.set(ean, Number(ap));
   }
   return r;
+}
+
+/** Pais del CSV de stock -> almacen: 'ES'/'ES/PT' -> ES/PT, 'IT' -> Italia, 'FR' -> Francia. */
+function almacenDeStock(p: string): string {
+  switch (p.trim().toUpperCase()) {
+    case 'ES':
+    case 'PT':
+    case 'ES/PT':
+      return 'ES/PT';
+    case 'IT':
+    case 'ITALIA':
+      return 'ITALIA';
+    case 'FR':
+    case 'FRANCIA':
+      return 'FRANCIA';
+    default:
+      return p.trim().toUpperCase();
+  }
 }
 
 /** CSV de stock -> EAN -> unidades, filtrado por pais. */
@@ -132,7 +151,7 @@ export function leerStock(
   const r = new Map<string, number>();
   if (!csv) return r;
   for (const fila of parseCsv(csv)) {
-    if (campo(fila, 'Pais', 'País').trim().toUpperCase() !== stockPais.toUpperCase()) continue;
+    if (almacenDeStock(campo(fila, 'Pais', 'País')) !== almacenDeStock(stockPais)) continue;
     const col = colorDeStock(campo(fila, 'Color'));
     if (!col) continue; // Madera -> se ignora
     const mod = modeloDeSku(campo(fila, 'Producto')) ?? modeloDeSku(campo(fila, 'SKU'));
@@ -140,7 +159,7 @@ export function leerStock(
     const ean = cat.get(`${mod}|${col}`);
     if (!ean) continue;
     const n = parseInt(campo(fila, 'Stock').trim(), 10);
-    if (!Number.isNaN(n)) r.set(ean, n);
+    if (!Number.isNaN(n) && !r.has(ean)) r.set(ean, n);
   }
   return r;
 }

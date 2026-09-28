@@ -152,48 +152,61 @@ function paisDePrecio(c: string): string | null {
 
 // ---------------------------------------------------------------- lectura
 
-export type Carga = { mapa: Map<string, number>; leidas: number; ignoradas: number };
+export type Carga = {
+  mapa: Map<string, number>;
+  leidas: number;
+  ignoradas: number;
+  /** Mismo producto y pais repetido con valores distintos (se queda el primero). */
+  repetidas: string[];
+};
+
+/** Guarda el valor si la clave es nueva; si ya estaba con otro valor, lo apunta. */
+function anotar(c: Carga, clave: string, n: number, etiqueta: string): void {
+  const previo = c.mapa.get(clave);
+  if (previo === undefined) {
+    c.mapa.set(clave, n);
+    c.leidas++;
+  } else if (previo !== n) {
+    c.repetidas.push(`${etiqueta}: ${previo} y ${n} (se usa ${previo})`);
+  }
+}
 
 /** CSV de stock -> clave 'PAIS|MODELO|COLOR' = unidades. */
 export function cargarStock(csv: string): Carga {
-  const mapa = new Map<string, number>();
-  let leidas = 0;
-  let ignoradas = 0;
+  const c: Carga = { mapa: new Map(), leidas: 0, ignoradas: 0, repetidas: [] };
   for (const r of parseCsv(csv)) {
     const g = paisDeStock(campo(r, 'Pais', 'País', 'country'));
     const col = colorDeNombre(campo(r, 'Color'));
     const mod = modelo(campo(r, 'Producto'), campo(r, 'SKU'));
-    const n = Number(campo(r, 'Stock').replace(',', '.'));
-    if (!g || !col || !mod || !Number.isFinite(n)) {
-      ignoradas++;
+    const bruto = campo(r, 'Stock').replace(',', '.');
+    const n = Number(bruto);
+    // Stock vacio (p. ej. las filas de UK del CSV unico) = sin dato, no 0.
+    if (!g || !col || !mod || bruto === '' || !Number.isFinite(n)) {
+      c.ignoradas++;
       continue;
     }
-    mapa.set(`${g}|${mod}|${col}`, Math.trunc(n));
-    leidas++;
+    anotar(c, `${g}|${mod}|${col}`, Math.trunc(n), `stock ${g} ${campo(r, 'SKU') || mod}`);
   }
-  return { mapa, leidas, ignoradas };
+  return c;
 }
 
-/** CSV de precios -> clave 'PAIS|MODELO|COLOR' = applied_price. */
+/** CSV de precios -> clave 'PAIS|MODELO|COLOR' = precio aplicado (con IVA). */
 export function cargarPrecios(csv: string): Carga {
-  const mapa = new Map<string, number>();
-  let leidas = 0;
-  let ignoradas = 0;
+  const c: Carga = { mapa: new Map(), leidas: 0, ignoradas: 0, repetidas: [] };
   for (const r of parseCsv(csv)) {
-    const c = paisDePrecio(campo(r, 'country', 'Pais', 'País'));
+    const p = paisDePrecio(campo(r, 'country', 'Pais', 'País'));
     const sku = campo(r, 'sku', 'SKU');
     const mod = modelo(sku);
     const col = colorDeSufijo(sufijoDe(sku));
-    const bruto = campo(r, 'applied_price', 'Precio').replace(',', '.');
+    const bruto = campo(r, 'applied_price', 'Precio_Aplicado', 'Precio').replace(',', '.');
     const n = Number(bruto);
-    if (!c || !mod || !col || bruto === '' || !Number.isFinite(n)) {
-      ignoradas++;
+    if (!p || !mod || !col || bruto === '' || !Number.isFinite(n)) {
+      c.ignoradas++;
       continue;
     }
-    mapa.set(`${c}|${mod}|${col}`, n);
-    leidas++;
+    anotar(c, `${p}|${mod}|${col}`, n, `precio ${p} ${sku}`);
   }
-  return { mapa, leidas, ignoradas };
+  return c;
 }
 
 // ---------------------------------------------------------------- escritura
@@ -214,8 +227,12 @@ export function aplicarPreciosYStock(
   if (!stock?.mapa.size && !precio?.mapa.size) {
     throw new Error(
       'Los CSV no traen ninguna linea aprovechable. Comprueba que el de stock tiene las columnas ' +
-        'Producto, SKU, Pais, Color y Stock, y el de precios sku, country y applied_price.',
+        'Producto, SKU, Pais, Color y Stock, y el de precios sku, country y applied_price ' +
+        '(o el CSV unico con SKU, Color, Pais, Precio_Aplicado y Stock).',
     );
+  }
+  for (const rep of [...(precio?.repetidas ?? []), ...(stock?.repetidas ?? [])]) {
+    avisos.push(`Repetido en el CSV con valores distintos — ${rep}. Revísalo.`);
   }
   if (stock) avisos.push(`Stock: ${stock.leidas} lineas leidas, ${stock.ignoradas} ignoradas.`);
   if (precio) avisos.push(`Precios: ${precio.leidas} cambios leidos, ${precio.ignoradas} ignorados.`);

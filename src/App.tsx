@@ -4,6 +4,7 @@ import { readMaestro } from './engine/maestro';
 import type { Maestro } from './engine/maestro';
 import { generar } from './engine/generar';
 import { anadirFilasQueFaltan, generarMakro } from './engine/makro';
+import { repartirCsv } from './engine/csv';
 import { PAISES_AMAZON, generarAmazon } from './engine/amazon';
 import { generarAmazonEsLoader } from './engine/amazonLoader';
 import { aplicarPreciosYStock } from './engine/ofertas';
@@ -254,9 +255,8 @@ function PreciosStock(props: {
   const [precio, setPrecio] = useState<File | null>(null);
 
   const aplicar = async () => {
-    const csvStock = stock ? await stock.text() : '';
-    const csvPrecios = precio ? await precio.text() : '';
-    props.onAplicar(csvStock, csvPrecios);
+    const csv = repartirCsv(precio ? await precio.text() : '', stock ? await stock.text() : '');
+    props.onAplicar(csv.stock, csv.precio);
   };
 
   return (
@@ -265,7 +265,8 @@ function PreciosStock(props: {
       <p className="pista">
         Los dos CSV de cada quincena. Actualizan la hoja Ofertas del maestro y con eso ya se pueden
         generar las ofertas de Leroy y del resto de portales. Los precios de España valen también
-        para Portugal y para Leroy; Alemania y Reino Unido no se tocan.
+        para Portugal y para Leroy; Alemania y Reino Unido no se tocan. Si tienes el CSV único de
+        precios y stock (<code>nexus_precios_stock</code>), súbelo en cualquiera de los dos huecos.
       </p>
       <div className="fila">
         <ArchivoCsv etiqueta="CSV de stock" file={stock} onChange={setStock} />
@@ -406,8 +407,9 @@ function MakroPanel(props: {
     props.setOcupado(true);
     const salidas: Fichero[] = [];
     try {
-      const csvPrecio = precio ? await precio.text() : '';
-      const csvStock = stock ? await stock.text() : '';
+      const csv = repartirCsv(precio ? await precio.text() : '', stock ? await stock.text() : '');
+      const csvPrecio = csv.precio;
+      const csvStock = csv.stock;
       const lista = pais === 'Todos' ? PAISES_MAKRO : [pais];
 
       for (const p of lista) {
