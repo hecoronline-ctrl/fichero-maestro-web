@@ -11,7 +11,7 @@
  *   - Cruce por numero de modelo (001/003/007/010/011) + color (G/N/B/B-N).
  *     El modelo 003 viene como EMD.003 en los CSV y como SYN.003 en el maestro:
  *     por eso el cruce es por numero, no por familia.
- *   - El color "Madera" se ignora (no se vende).
+ *   - Colores: Gris/Negro/Blanco/B&N y, desde el 28/09/2026, Madera (_M) y Antracita (_A).
  *
  * DIFERENCIA CON EL SCRIPT DE ESCRITORIO — el CSV de stock cambio de formato
  * hacia el 26/06/2026: antes traia Producto='1' y SKU='EMD.001', ahora trae
@@ -46,8 +46,12 @@ function colorDeNombre(c: string): string | null {
     case 'byn':
     case 'b&w':
       return 'B-N';
+    case 'madera':
+      return 'M';
+    case 'antracita':
+      return 'A';
     default:
-      return null; // "Madera" y cualquier otro: no se vende
+      return null;
   }
 }
 
@@ -69,6 +73,10 @@ function colorDeSufijo(s: string): string | null {
     case 'B&W':
     case 'B-N':
       return 'B-N';
+    case 'M':
+      return 'M'; // efecto madera
+    case 'A':
+      return 'A'; // antracita
     default:
       return null;
   }
