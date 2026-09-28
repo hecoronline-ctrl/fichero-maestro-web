@@ -239,6 +239,59 @@ export function generarMakro(
   };
 }
 
+/**
+ * Anade a la plantilla `base` las filas de `extra` cuyo GTIN no tenga (columnas
+ * emparejadas por cabecera). Sirve para meter productos nuevos en la plantilla
+ * guardada en el navegador sin perder los precios y stocks que ya tenia.
+ */
+export function anadirFilasQueFaltan(
+  base: ArrayBuffer | Uint8Array,
+  extra: ArrayBuffer | Uint8Array,
+): { bytes: Uint8Array; anadidas: string[] } {
+  const libro = Libro.abrir(base);
+  const hb = libro.hoja('Offers');
+  const he = Libro.abrir(extra).hoja('Offers');
+
+  const cabeceras = (h: typeof hb) => {
+    const m = new Map<string, number>();
+    for (let c = 1; c <= Math.max(h.ultimaColumna, 30); c++) {
+      const t = h.texto(1, c);
+      if (t && !m.has(t)) m.set(t, c);
+    }
+    return m;
+  };
+  const cb = cabeceras(hb);
+  const ce = cabeceras(he);
+  const gb = cb.get('GTIN');
+  const ge = ce.get('GTIN');
+  if (!gb || !ge) throw new Error('Plantilla de Makro sin columna GTIN.');
+
+  const tiene = new Set<string>();
+  let ultima = 1;
+  for (let r = 2; r <= hb.ultimaFila; r++) {
+    const g = hb.texto(r, gb);
+    if (g) {
+      tiene.add(g);
+      ultima = r;
+    }
+  }
+  const estilos = hb.estilosDeFila(2);
+
+  const anadidas: string[] = [];
+  for (let r = 2; r <= he.ultimaFila; r++) {
+    const g = he.texto(r, ge);
+    if (!g || tiene.has(g)) continue;
+    ultima++;
+    for (const [etiqueta, c] of cb) {
+      const origen = ce.get(etiqueta);
+      if (origen) hb.set(ultima, c, he.get(r, origen), estilos);
+    }
+    tiene.add(g);
+    anadidas.push(g);
+  }
+  return { bytes: anadidas.length ? libro.guardar() : new Uint8Array(base), anadidas };
+}
+
 function redondear(n: number, dec: number): number {
   const f = Math.pow(10, dec);
   return Math.round(n * f) / f;

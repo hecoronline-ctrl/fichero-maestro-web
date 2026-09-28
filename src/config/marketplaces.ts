@@ -8,6 +8,7 @@
  *   desdePlantilla = conserva el valor que ya trae la plantilla
  *   etiqueta       = texto de la cabecera destino (contains, sin acentos)
  *   col            = indice de columna fijo (alternativa a etiqueta)
+ *   valores        = traduce el valor del maestro al del portal (p. ej. G -> "Gris / plata")
  */
 
 export type MapaItem = {
@@ -17,6 +18,7 @@ export type MapaItem = {
   etiqueta?: string;
   col?: number;
   texto?: boolean;
+  valores?: Record<string, string>;
 };
 
 export type BloqueCfg = {
@@ -35,6 +37,10 @@ export type BloqueCfg = {
   quitarIvaPorPais?: Record<string, number>;
   descuentosCantidad?: Record<string, number>;
   shippingGroupPorModelo?: Record<string, string>;
+  /** Catalogo: solo los productos de estos tipos del maestro (columna `tipo`). */
+  soloTipos?: string[];
+  /** Catalogo: todos los productos menos los de estos tipos. */
+  excluirTipos?: string[];
   mapa: MapaItem[];
 };
 
@@ -66,6 +72,9 @@ export const MARKETPLACES: Marketplace[] = [
       modo: 'Reemplazar',
       // PT no tiene imagenes en el maestro -> se usan las de ingles (uk).
       imgPaisPorPais: { ES: 'es', IT: 'it', FR: 'fr', PT: 'uk' },
+      // La plantilla es de taquillas (categoria "Armario metalico"): los bancos
+      // van en su propio portal, "Leroy Merlin · Bancos".
+      excluirTipos: ['MET'],
       mapa: [
         { desdePlantilla: true, etiqueta: 'product_category' },
         { campo: 'sku_leroy', etiqueta: 'shop_sku' },
@@ -113,6 +122,72 @@ export const MARKETPLACES: Marketplace[] = [
         { desdePlantilla: true, col: 60 },
         { desdePlantilla: true, col: 62 },
         { desdePlantilla: true, col: 63 },
+      ],
+    },
+  },
+
+  // Bancos metalicos (tipo MET) en Leroy: otra categoria ("Banco de interior") con
+  // sus propios atributos, asi que van en otra plantilla (exportada de Leroy).
+  // Las ofertas de los bancos salen en el fichero de ofertas de Leroy Merlin.
+  {
+    id: 'LeroyMerlinBancos',
+    nombre: 'Leroy Merlin · Bancos',
+    familia: 'Mirakl',
+    paises: ['ES', 'IT', 'FR', 'PT'],
+    catalogo: {
+      plantilla: 'Leroy Merlin/products-Leroy-Bancos.xlsx',
+      hoja: 'Data',
+      filaCabecera: 2,
+      filaDatos: 3,
+      modo: 'Reemplazar',
+      imgPaisPorPais: { ES: 'es', IT: 'it', FR: 'fr', PT: 'uk' },
+      soloTipos: ['MET'],
+      mapa: [
+        { campo: 'sku_leroy', etiqueta: 'shop_sku' },
+        { campo: 'ean', etiqueta: 'gtin_EAN13' },
+        { literal: 'TWINTHINK', etiqueta: 'feature_06575_brand' },
+        { campo: 'titulo_fr', etiqueta: 'i18n_fr_12963_title' },
+        { campo: 'titulo_it', etiqueta: 'i18n_it_12963_title' },
+        { campo: 'titulo_es', etiqueta: 'i18n_es_12963_title' },
+        { campo: 'titulo_pt', etiqueta: 'i18n_pt_12963_title' },
+        { campo: 'descripcion_fr', etiqueta: 'i18n_fr_01022_longdescription' },
+        { campo: 'descripcion_it', etiqueta: 'i18n_it_01022_longdescription' },
+        { campo: 'descripcion_es', etiqueta: 'i18n_es_01022_longdescription' },
+        { campo: 'descripcion_pt', etiqueta: 'i18n_pt_01022_longdescription' },
+        { campo: 'img_{IMG}_1', etiqueta: 'media_1' },
+        { campo: 'img_{IMG}_2', etiqueta: 'media_2' },
+        { campo: 'img_{IMG}_3', etiqueta: 'media_3' },
+        { campo: 'img_{IMG}_4', etiqueta: 'media_4' },
+        { campo: 'img_{IMG}_5', etiqueta: 'media_5' },
+        { campo: 'img_{IMG}_6', etiqueta: 'media_6' },
+        {
+          campo: 'color',
+          etiqueta: 'feature_10837_main_color',
+          valores: { G: 'Gris / plata', N: 'Negro', B: 'Blanco', 'B-N': 'Multicolor' },
+        },
+        { campo: 'peso_kg', etiqueta: 'ATT_00124' },
+        { campo: 'alto_cm', etiqueta: 'ATT_00054' },
+        { campo: 'ancho_cm', etiqueta: 'ATT_00053' },
+        { campo: 'fondo_cm', etiqueta: 'ATT_00055' },
+        // Plazas: el de 90 cm es de 2 y el de 150 cm de 3.
+        { campo: 'ancho_cm', etiqueta: 'feature_13840_', valores: { '90': '2', '150': '3' } },
+        // Lo comun a todos los bancos, tal y como esta en el fichero exportado de Leroy.
+        { desdePlantilla: true, etiqueta: 'product_category' },
+        { desdePlantilla: true, etiqueta: 'parentproductid' },
+        { desdePlantilla: true, etiqueta: 'feature_10840_main_material' },
+        { desdePlantilla: true, etiqueta: 'feature_22088_' },
+        { desdePlantilla: true, etiqueta: 'feature_21268_' },
+        { desdePlantilla: true, etiqueta: 'feature_10844_' },
+        { desdePlantilla: true, etiqueta: 'ATT_01305' },
+        { desdePlantilla: true, etiqueta: 'ATT_09309' },
+        { desdePlantilla: true, etiqueta: 'feature_13558_' },
+        { desdePlantilla: true, etiqueta: 'feature_08175_' },
+        { desdePlantilla: true, etiqueta: 'feature_02419_' },
+        { desdePlantilla: true, etiqueta: 'ATT_21148' },
+        { desdePlantilla: true, etiqueta: 'ATT_20644' },
+        { desdePlantilla: true, etiqueta: 'feature_00277_' },
+        { desdePlantilla: true, etiqueta: 'feature_26156_' },
+        { desdePlantilla: true, etiqueta: 'feature_25415_' },
       ],
     },
   },

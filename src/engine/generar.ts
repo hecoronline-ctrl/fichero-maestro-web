@@ -129,7 +129,7 @@ export function generarConPlantilla(
 
   const avisos: string[] = [];
   const filas: (FilaMaestro | FilaOferta)[] =
-    tipo === 'ofertas' ? buildOfferRows(mp, pais, maestro, avisos) : maestro.catalogo;
+    tipo === 'ofertas' ? buildOfferRows(mp, pais, maestro, avisos) : filtrarTipos(cfg, maestro.catalogo);
   if (filas.length === 0) throw new Error('No hay filas que escribir.');
 
   const libro = Libro.abrir(plantilla);
@@ -149,6 +149,22 @@ export function generarConPlantilla(
     filas: escritas,
     avisos,
   };
+}
+
+/** Productos del catalogo que van en este portal, segun su tipo (TAQ, MET...). */
+function filtrarTipos(cfg: BloqueCfg, catalogo: FilaMaestro[]): FilaMaestro[] {
+  const tipo = (f: FilaMaestro) => String(f['tipo'] ?? '').trim().toUpperCase();
+  let filas = catalogo;
+  if (cfg.soloTipos) filas = filas.filter((f) => cfg.soloTipos!.includes(tipo(f)));
+  if (cfg.excluirTipos) filas = filas.filter((f) => !cfg.excluirTipos!.includes(tipo(f)));
+  return filas;
+}
+
+/** Valor del maestro, traducido al del portal si el item trae `valores`. */
+function valorDe(m: MapaResuelto, fila: FilaMaestro | FilaOferta): Valor {
+  const v = fila[m._campo!];
+  if (!m.valores || isEmpty(v)) return v;
+  return m.valores[String(v).trim()] ?? v;
 }
 
 /** Escribe las filas en la hoja segun el Mapa. Devuelve cuantas se escribieron. */
@@ -193,7 +209,7 @@ function rellenar(
       if (!fila) continue;
       for (const m of mapa) {
         if (m._col === 0 || m.campo === clave) continue;
-        const val = m.literal !== undefined ? m.literal.replace('{PAIS}', pais) : fila[m._campo!];
+        const val = m.literal !== undefined ? m.literal.replace('{PAIS}', pais) : valorDe(m, fila);
         if (!isEmpty(val)) hoja.set(r, m._col, val as Valor);
       }
       escritas++;
@@ -238,7 +254,7 @@ function rellenar(
           ? m.literal.replace('{PAIS}', pais)
           : m.desdePlantilla
             ? m._preserved
-            : fila[m._campo!];
+            : valorDe(m, fila);
       if (!isEmpty(val)) hoja.set(r, m._col, val as Valor, estilos);
     }
     r++;

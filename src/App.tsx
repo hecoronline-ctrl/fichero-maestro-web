@@ -3,7 +3,7 @@ import { MARKETPLACES, getMarketplace, getPaises } from './config/marketplaces';
 import { readMaestro } from './engine/maestro';
 import type { Maestro } from './engine/maestro';
 import { generar } from './engine/generar';
-import { generarMakro } from './engine/makro';
+import { anadirFilasQueFaltan, generarMakro } from './engine/makro';
 import { PAISES_AMAZON, generarAmazon } from './engine/amazon';
 import { generarAmazonEsLoader } from './engine/amazonLoader';
 import { aplicarPreciosYStock } from './engine/ofertas';
@@ -414,7 +414,16 @@ function MakroPanel(props: {
         try {
           // La base es la plantilla ya actualizada si existe; si no, la incluida.
           const guardada = await leer(claveMakro(p));
-          const base = guardada ? guardada.bytes : await fetchAsset(`plantillas/Makro/offer_template ${p}.xlsx`);
+          const incluida = await fetchAsset(`plantillas/Makro/offer_template ${p}.xlsx`);
+          let base: ArrayBuffer | Uint8Array = incluida;
+          if (guardada) {
+            // Si la web trae productos nuevos (p. ej. los bancos), se suman a la guardada.
+            const m = anadirFilasQueFaltan(guardada.bytes, incluida);
+            base = m.bytes;
+            if (m.anadidas.length) {
+              props.log(`Makro ${p}: ${m.anadidas.length} productos nuevos añadidos a tu plantilla.`);
+            }
+          }
           const r = generarMakro(p, base, props.maestro.catalogo, csvPrecio, csvStock);
           if (!r) {
             props.log(`Makro ${p}: sin datos en los archivos → no se toca.`);
