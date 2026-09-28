@@ -37,6 +37,12 @@ export type BloqueCfg = {
   quitarIvaPorPais?: Record<string, number>;
   descuentosCantidad?: Record<string, number>;
   shippingGroupPorModelo?: Record<string, string>;
+  /** Ofertas: precio por canal/pais (campos PrecioReal_{canal} y PrecioTachado_{canal}). */
+  canales?: { canal: string; pais: string }[];
+  /** Ofertas: portales de la hoja Ofertas de los que sale el precio de cada pais. */
+  preciosPaisDesde?: string[];
+  /** Ofertas: precio tachado = precio real + esto (campos PrecioReal / PrecioTachado). */
+  tachadoMas?: number;
   /** Catalogo: solo los productos de estos tipos del maestro (columna `tipo`). */
   soloTipos?: string[];
   /** Catalogo: todos los productos menos los de estos tipos. */
@@ -97,31 +103,55 @@ export const MARKETPLACES: Marketplace[] = [
       ],
     },
     ofertas: {
-      paises: ['ALL'], // un unico fichero de oferta para todos los paises
+      // Un unico fichero de ofertas para los 4 paises (plantilla Mirakl de 97 columnas
+      // descargada de Leroy el 28/09/2026). Cabecera por CODIGO (fila 2), datos desde la 3.
+      paises: ['ALL'],
       plantilla: 'Leroy Merlin/offers-Leroy-All.xlsx',
       hoja: 'Data',
-      filaCabecera: 1,
+      filaCabecera: 2,
       filaDatos: 3,
       skuCampo: 'sku_leroy',
+      // Precio de cada pais en su canal. Deducido del fichero que se subia a Leroy
+      // (el precio de descuento de cada canal = precio de ese pais en el CSV):
+      //   001 = Leroy Francia, 002 = Portugal, 003 = Espana, 005 = Italia.
+      // Portugal lleva el precio de Espana (misma regla que el resto de portales).
+      canales: [
+        { canal: '001', pais: 'FR' },
+        { canal: '002', pais: 'ES' },
+        { canal: '003', pais: 'ES' },
+        { canal: '005', pais: 'IT' },
+      ],
+      // Precio de FR/IT: filas LeroyMerlin/FR y LeroyMerlin/IT de la hoja Ofertas (las
+      // actualiza el CSV de precios). La oferta en si sale de la fila ALL (Espana + stock).
+      // Sin fila de ese pais -> canal vacio y vale el precio general.
+      preciosPaisDesde: ['LeroyMerlin'],
+      // Mirakl: el descuento es el precio REAL y el precio tachado = real + 20 EUR.
+      tachadoMas: 20,
       mapa: [
-        { campo: 'SKU', etiqueta: 'SKU de oferta' },
-        { campo: 'EAN', etiqueta: 'ID de producto' },
-        { literal: 'EAN', etiqueta: 'Tipo de ID de producto' },
-        { campo: 'Precio', etiqueta: 'Precio de la oferta' },
-        { campo: 'Stock', etiqueta: 'Cantidad de la oferta' },
-        { campo: 'Estado', etiqueta: 'Estado de la oferta' },
-        { campo: 'ClaseLogistica', etiqueta: 'Clase logistica' },
-        { campo: 'PlazoEnvio', etiqueta: 'Plazo de envio' },
-        { campo: 'Accion', etiqueta: 'Actualizar/Eliminar' },
-        // Columnas constantes que la plantilla rellena en TODAS sus filas:
-        //   57-60 = "Standard", 62 = "ES", 63 = "LMES,LMFR,LMIT,LMPT".
-        // Por indice: las etiquetas de estas columnas son ambiguas/duplicadas.
-        { desdePlantilla: true, col: 57 },
-        { desdePlantilla: true, col: 58 },
-        { desdePlantilla: true, col: 59 },
-        { desdePlantilla: true, col: 60 },
-        { desdePlantilla: true, col: 62 },
-        { desdePlantilla: true, col: 63 },
+        { campo: 'SKU', etiqueta: 'sku' },
+        { campo: 'EAN', etiqueta: 'product-id' },
+        { literal: 'EAN', etiqueta: 'product-id-type' },
+        { campo: 'PrecioTachado', etiqueta: 'price' },
+        { campo: 'PrecioReal', etiqueta: 'discount-price' },
+        { campo: 'Stock', etiqueta: 'quantity' },
+        { campo: 'Estado', etiqueta: 'state' },
+        { campo: 'ClaseLogistica', etiqueta: 'logistic-class' },
+        { campo: 'PlazoEnvio', etiqueta: 'leadtime-to-ship' },
+        { campo: 'Accion', etiqueta: 'update-delete' },
+        { campo: 'PrecioTachado_001', etiqueta: 'price[channel=001]' },
+        { campo: 'PrecioReal_001', etiqueta: 'discount-price[channel=001]' },
+        { campo: 'PrecioTachado_002', etiqueta: 'price[channel=002]' },
+        { campo: 'PrecioReal_002', etiqueta: 'discount-price[channel=002]' },
+        { campo: 'PrecioTachado_003', etiqueta: 'price[channel=003]' },
+        { campo: 'PrecioReal_003', etiqueta: 'discount-price[channel=003]' },
+        { campo: 'PrecioTachado_005', etiqueta: 'price[channel=005]' },
+        { campo: 'PrecioReal_005', etiqueta: 'discount-price[channel=005]' },
+        { literal: 'Standard', etiqueta: 'vat-lmfr' },
+        { literal: 'Standard', etiqueta: 'vat-lmit' },
+        { literal: 'Standard', etiqueta: 'vat-lmes' },
+        { literal: 'Standard', etiqueta: 'vat-lmpt' },
+        { literal: 'ES', etiqueta: 'shipment-origin' },
+        { literal: 'LMES,LMFR,LMIT,LMPT', etiqueta: 'exclusive-channels' },
       ],
     },
   },

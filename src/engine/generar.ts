@@ -42,6 +42,19 @@ export function buildOfferRows(
     if (e) byEan.set(e, c);
   }
 
+  // Precio de cada pais por EAN, sacado de la hoja Ofertas (portales en orden de preferencia).
+  const precioPais = new Map<string, number>();
+  for (const mpPrecio of [...(cfg.preciosPaisDesde ?? [])].reverse()) {
+    for (const o of maestro.ofertas) {
+      if (String(o['Marketplace'] ?? '') !== mpPrecio) continue;
+      const n = Number(o['Precio']);
+      if (isEmpty(o['Precio']) || !Number.isFinite(n)) continue;
+      const pa = String(o['Pais'] ?? '').trim().toUpperCase();
+      precioPais.set(`${String(o['EAN'] ?? '').trim()}|${pa === 'ALL' ? 'ES' : pa}`, n);
+    }
+  }
+  const sinCanal = new Map<string, number>();
+
   const filas: FilaOferta[] = [];
   let sinPrecio = 0;
   let sinSku = 0;
@@ -50,6 +63,8 @@ export function buildOfferRows(
     if (String(o['Marketplace'] ?? '') !== mp.id) continue;
     const pa = String(o['Pais'] ?? '').trim();
     if (!(pa === pais || pa === 'ALL' || pais === 'ALL')) continue;
+    // Con precios por canal, las filas de pais solo aportan el precio de su canal.
+    if (cfg.canales && pa !== 'ALL') continue;
     if (isEmpty(o['Precio']) || String(o['Precio']).trim() === '') {
       sinPrecio++;
       continue;
@@ -63,6 +78,29 @@ export function buildOfferRows(
     }
 
     const fila: FilaOferta = { ...o, SKU: sku };
+
+    // Precio real (descuento) y tachado, general y por canal/pais.
+    if (cfg.tachadoMas !== undefined) {
+      const real = Number(o['Precio']);
+      fila['PrecioReal'] = real;
+      fila['PrecioTachado'] = redondear(real + cfg.tachadoMas, 2);
+      for (const { canal, pais: pc } of cfg.canales ?? []) {
+        const p = pc === 'ES' ? real : precioPais.get(`${ean}|${pc}`);
+        if (p === undefined) {
+          sinCanal.set(pc, (sinCanal.get(pc) ?? 0) + 1);
+          continue;
+        }
+        // Salvaguarda: un precio de pais por debajo de la mitad del de Espana es un dato malo.
+        if (p < real / 2) {
+          avisos.push(
+            `${sku} ${pc}: precio ${p} demasiado bajo frente a ${real} en Espana; canal vacio.`,
+          );
+          continue;
+        }
+        fila[`PrecioReal_${canal}`] = p;
+        fila[`PrecioTachado_${canal}`] = redondear(p + cfg.tachadoMas, 2);
+      }
+    }
 
     // --- Enriquecimiento config-driven (disponible para portales tipo Makro) ---
     if (cfg.quitarIvaPorPais && cfg.quitarIvaPorPais[pais] !== undefined) {
@@ -87,6 +125,9 @@ export function buildOfferRows(
   }
 
   if (sinPrecio > 0) avisos.push(`${sinPrecio} ofertas omitidas por no tener precio.`);
+  for (const [pc, n] of sinCanal) {
+    avisos.push(`${n} productos sin precio de ${pc}: su canal queda vacio y vale el precio general.`);
+  }
   if (sinSku > 0) {
     avisos.push(`${sinSku} ofertas omitidas (EAN sin SKU '${skuCampo}' en el catalogo).`);
   }
