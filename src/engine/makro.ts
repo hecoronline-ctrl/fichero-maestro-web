@@ -5,7 +5,7 @@
  * precios buenos (netos). Lo que NO aparezca en los CSV subidos NO se toca.
  *   - CSV de PRECIO (con IVA): cambia el precio solo de los productos que trae,
  *     Net price = applied_price / (1 + IVA del pais).
- *   - CSV de STOCK (snapshot): ajusta Quantity solo de los que trae (Madera se ignora).
+ *   - CSV de STOCK (snapshot): ajusta Quantity solo de los que trae.
  * Ademas fuerza el Shipping Group por modelo, el destino y el almacen de salida del
  * pais (Origin + plazo de preparacion, ver MAKRO_ORIGENES) y recalcula los descuentos
  * por cantidad.
@@ -65,6 +65,10 @@ export function colorDeSufijo(s: string): string | null {
     case 'B&W':
     case 'B-N':
       return 'B-N';
+    case 'M':
+      return 'M'; // efecto madera
+    case 'A':
+      return 'A'; // antracita
     default:
       return null;
   }
@@ -82,8 +86,12 @@ export function colorDeStock(c: string): string | null {
     case 'byn':
     case 'b&w':
       return 'B-N';
+    case 'madera':
+      return 'M';
+    case 'antracita':
+      return 'A';
     default:
-      return null; // Madera y desconocidos se ignoran
+      return null; // desconocidos se ignoran
   }
 }
 
@@ -153,7 +161,7 @@ export function leerStock(
   for (const fila of parseCsv(csv)) {
     if (almacenDeStock(campo(fila, 'Pais', 'País')) !== almacenDeStock(stockPais)) continue;
     const col = colorDeStock(campo(fila, 'Color'));
-    if (!col) continue; // Madera -> se ignora
+    if (!col) continue; // color desconocido -> se ignora
     const mod = modeloDeSku(campo(fila, 'Producto')) ?? modeloDeSku(campo(fila, 'SKU'));
     if (!mod) continue;
     const ean = cat.get(`${mod}|${col}`);
