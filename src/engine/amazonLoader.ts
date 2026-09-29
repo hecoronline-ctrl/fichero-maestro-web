@@ -11,8 +11,8 @@
  *   - SKU y ASIN: columnas amazon_sku_es / amazon_asin_es del maestro. Sin SKU la
  *     referencia NO sale: un SKU inventado crearia una oferta duplicada en Amazon.
  *   - Precio, stock y plazo: hoja Ofertas del maestro. Primero una fila de Amazon ES;
- *     si no hay, la de cualquier portal de Espana (un precio por pais, el mismo en
- *     todos los portales) y, por ultimo, la de Leroy ALL.
+ *     si no hay, la de Leroy ALL (el precio de Espana, que tienen todos los productos)
+ *     y, por ultimo, la de otro portal de Espana (nunca Makro, que va sin IVA).
  *   - Plantilla de envio: por modelo (AMAZON_ES_ENVIO).
  */
 import { AMAZON_ES_ENVIO } from '../config/marketplaces';
@@ -126,7 +126,8 @@ export function generarAmazonEsLoader(
   }
   if (prestados > 0) {
     avisos.push(
-      `${prestados} precios tomados de otro portal de Espana: la hoja Ofertas no tiene filas de Amazon ES.`,
+      `${prestados} precios y stocks son los de Espana de la hoja Ofertas (fila de Leroy): ` +
+        `no hay filas propias de Amazon ES.`,
     );
   }
   if (sinEnvio.length > 0) {
@@ -148,7 +149,12 @@ export function generarAmazonEsLoader(
   };
 }
 
-/** Fila de precio/stock para Espana: Amazon ES > cualquier portal ES > ALL. */
+/**
+ * Fila de precio/stock para Espana: Amazon ES > Leroy ALL > otro portal de Espana.
+ * Leroy ALL va antes que el resto porque es la fila de Espana que tienen TODOS los
+ * productos (taquillas, madera/antracita y bancos) y la que actualiza el CSV de precios;
+ * asi el precio sale siempre del mismo sitio. Makro no cuenta: sus filas no son PVP.
+ */
 function ofertaEs(
   ofertas: FilaOferta[],
   fila: FilaMaestro,
@@ -157,12 +163,13 @@ function ofertaEs(
   const ref = t(fila['sku_canonico']);
   const suyas = ofertas.filter((o) => t(o['EAN']) === ean || (ref !== '' && t(o['ref']) === ref));
   const pais = (o: FilaOferta) => t(o['Pais']).toUpperCase();
-  const amazon = suyas.find((o) => t(o['Marketplace']).toLowerCase() === 'amazon' && pais(o) === 'ES');
+  const portal = (o: FilaOferta) => t(o['Marketplace']).toLowerCase();
+  const amazon = suyas.find((o) => portal(o) === 'amazon' && pais(o) === 'ES');
   if (amazon) return { oferta: amazon, prestado: false };
-  const es = suyas.find((o) => pais(o) === 'ES' && numero(o['Precio']) !== null);
-  if (es) return { oferta: es, prestado: true };
   const all = suyas.find((o) => pais(o) === 'ALL' && numero(o['Precio']) !== null);
-  return { oferta: all ?? null, prestado: all !== undefined };
+  if (all) return { oferta: all, prestado: true };
+  const es = suyas.find((o) => pais(o) === 'ES' && portal(o) !== 'makro' && numero(o['Precio']) !== null);
+  return { oferta: es ?? null, prestado: es !== undefined };
 }
 
 function numero(v: unknown): number | null {
