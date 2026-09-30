@@ -38,7 +38,11 @@ export type BloqueCfg = {
   descuentosCantidad?: Record<string, number>;
   shippingGroupPorModelo?: Record<string, string>;
   /** Ofertas: precio por canal/pais (campos PrecioReal_{canal} y PrecioTachado_{canal}). */
-  canales?: { canal: string; pais: string }[];
+  canales?: { canal: string; pais: string; precioDe?: string }[];
+  /** Ofertas: pais cuyo precio se usa en un canal sin precio propio (si no, canal vacio). */
+  canalSinPrecio?: string;
+  /** Ofertas: price general = el price (tachado) mas alto de los canales. */
+  tachadoGeneralMaxCanal?: boolean;
   /** Ofertas: portales de la hoja Ofertas de los que sale el precio de cada pais. */
   preciosPaisDesde?: string[];
   /** Ofertas: precio tachado = precio real + esto (campos PrecioReal / PrecioTachado). */
@@ -111,22 +115,23 @@ export const MARKETPLACES: Marketplace[] = [
       filaCabecera: 2,
       filaDatos: 3,
       skuCampo: 'sku_leroy',
-      // Precio de cada pais en su canal. Deducido del fichero que se subia a Leroy
-      // (el precio de descuento de cada canal = precio de ese pais en el CSV):
-      //   001 = Leroy Francia, 002 = Portugal, 003 = Espana, 005 = Italia.
-      // Portugal lleva el precio de Espana (misma regla que el resto de portales).
+      // Canales de Leroy (lo confirmo el usuario el 30/09/2026):
+      //   001 = Francia, 002 = Espana, 003 = Portugal, 005 = Italia.
+      // discount-price de cada canal = precio que queremos en ese pais (filas LeroyMerlin
+      // ALL/FR/IT de la hoja Ofertas, las actualiza el CSV). Portugal lleva el de Espana,
+      // y un pais sin precio propio tambien (ningun canal queda vacio).
       canales: [
         { canal: '001', pais: 'FR' },
         { canal: '002', pais: 'ES' },
-        { canal: '003', pais: 'ES' },
+        { canal: '003', pais: 'PT', precioDe: 'ES' },
         { canal: '005', pais: 'IT' },
       ],
-      // Precio de FR/IT: filas LeroyMerlin/FR y LeroyMerlin/IT de la hoja Ofertas (las
-      // actualiza el CSV de precios). La oferta en si sale de la fila ALL (Espana + stock).
-      // Sin fila de ese pais -> canal vacio y vale el precio general.
       preciosPaisDesde: ['LeroyMerlin'],
-      // Mirakl: el descuento es el precio REAL y el precio tachado = real + 20 EUR.
-      tachadoMas: 20,
+      canalSinPrecio: 'ES',
+      // price de cada canal (tachado) = su discount-price + 30 EUR.
+      tachadoMas: 30,
+      // price general (obligatorio) = el price mas alto de los canales.
+      tachadoGeneralMaxCanal: true,
       mapa: [
         { campo: 'SKU', etiqueta: 'sku' },
         { campo: 'EAN', etiqueta: 'product-id' },

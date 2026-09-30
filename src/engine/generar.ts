@@ -84,21 +84,27 @@ export function buildOfferRows(
       const real = Number(o['Precio']);
       fila['PrecioReal'] = real;
       fila['PrecioTachado'] = redondear(real + cfg.tachadoMas, 2);
-      for (const { canal, pais: pc } of cfg.canales ?? []) {
-        const p = pc === 'ES' ? real : precioPais.get(`${ean}|${pc}`);
+      const precioDe = (pc: string) => (pc === 'ES' ? real : precioPais.get(`${ean}|${pc}`));
+      for (const { canal, pais: pc, precioDe: origen } of cfg.canales ?? []) {
+        let p = precioDe(origen ?? pc);
+        // Salvaguarda: un precio de pais por debajo de la mitad del de Espana es un dato malo.
+        if (p !== undefined && p < real / 2) {
+          avisos.push(`${sku} ${pc}: precio ${p} demasiado bajo frente a ${real} en Espana; se descarta.`);
+          p = undefined;
+        }
         if (p === undefined) {
           sinCanal.set(pc, (sinCanal.get(pc) ?? 0) + 1);
-          continue;
-        }
-        // Salvaguarda: un precio de pais por debajo de la mitad del de Espana es un dato malo.
-        if (p < real / 2) {
-          avisos.push(
-            `${sku} ${pc}: precio ${p} demasiado bajo frente a ${real} en Espana; canal vacio.`,
-          );
-          continue;
+          if (cfg.canalSinPrecio) p = precioDe(cfg.canalSinPrecio);
+          if (p === undefined) continue;
         }
         fila[`PrecioReal_${canal}`] = p;
         fila[`PrecioTachado_${canal}`] = redondear(p + cfg.tachadoMas, 2);
+      }
+      if (cfg.tachadoGeneralMaxCanal) {
+        const tachados = (cfg.canales ?? [])
+          .map(({ canal }) => fila[`PrecioTachado_${canal}`])
+          .filter((v): v is number => typeof v === 'number');
+        if (tachados.length) fila['PrecioTachado'] = Math.max(fila['PrecioTachado'] as number, ...tachados);
       }
     }
 
@@ -126,7 +132,11 @@ export function buildOfferRows(
 
   if (sinPrecio > 0) avisos.push(`${sinPrecio} ofertas omitidas por no tener precio.`);
   for (const [pc, n] of sinCanal) {
-    avisos.push(`${n} productos sin precio de ${pc}: su canal queda vacio y vale el precio general.`);
+    avisos.push(
+      cfg.canalSinPrecio
+        ? `${n} productos sin precio propio de ${pc}: su canal lleva el de ${cfg.canalSinPrecio}.`
+        : `${n} productos sin precio de ${pc}: su canal queda vacio y vale el precio general.`,
+    );
   }
   if (sinSku > 0) {
     avisos.push(`${sinSku} ofertas omitidas (EAN sin SKU '${skuCampo}' en el catalogo).`);
