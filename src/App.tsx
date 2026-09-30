@@ -308,6 +308,9 @@ function Generador(props: {
   const paises = getPaises(portal, tipoValido);
   const [pais, setPais] = useState(paises[0]);
   const paisValido = paises.includes(pais) ? pais : paises[0];
+  const reglas = tipoValido === 'ofertas' ? (portal.ofertas?.reglasPrecio ?? []) : [];
+  const [regla, setRegla] = useState('');
+  const reglaValida = reglas.some((r) => r.id === regla) ? regla : reglas[0]?.id;
 
   const ejecutar = async (casos: { tipo: 'catalogo' | 'ofertas'; pais: string }[]) => {
     if (!props.maestro) return;
@@ -316,7 +319,7 @@ function Generador(props: {
     try {
       for (const caso of casos) {
         try {
-          const r = await generar(portal, caso.tipo, caso.pais, props.maestro);
+          const r = await generar(portal, caso.tipo, caso.pais, props.maestro, reglaValida);
           salidas.push({ nombre: r.nombre, blob: r.blob });
           props.log(`${portal.nombre} ${caso.pais} ${caso.tipo}: ${r.filas} filas → ${r.nombre}`, 'ok');
           for (const a of r.avisos) props.log(`   aviso: ${a}`);
@@ -374,6 +377,18 @@ function Generador(props: {
             ))}
           </select>
         </label>
+        {reglas.length > 0 && (
+          <label>
+            Regla de precios
+            <select value={reglaValida} onChange={(e) => setRegla(e.target.value)}>
+              {reglas.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.nombre}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
       <div className="fila">
         <button

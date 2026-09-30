@@ -39,6 +39,11 @@ export type BloqueCfg = {
   shippingGroupPorModelo?: Record<string, string>;
   /** Ofertas: precio por canal/pais (campos PrecioReal_{canal} y PrecioTachado_{canal}). */
   canales?: { canal: string; pais: string; precioDe?: string; rebaja?: number }[];
+  /**
+   * Ofertas: reglas de precio a elegir al generar (la primera es la predeterminada).
+   * sinRebaja = ignora la rebaja de los canales; claseLogistica = valor fijo para todas.
+   */
+  reglasPrecio?: { id: string; nombre: string; sinRebaja?: boolean; claseLogistica?: string }[];
   /** Ofertas: deja vacio el discount-price general (solo cuentan los de canal). */
   sinDescuentoGeneral?: boolean;
   /** Ofertas: pais cuyo precio se usa en un canal sin precio propio (si no, canal vacio). */
@@ -138,6 +143,12 @@ export const MARKETPLACES: Marketplace[] = [
       tachadoMas: 30,
       // price general (obligatorio) = el precio de pais mas caro, sin rebaja (30/09/2026).
       tachadoGeneralMaxPais: true,
+      reglasPrecio: [
+        { id: '1', nombre: 'Regla nº1 (con rebaja)' },
+        // Regla nº2 (30/09/2026): la nº1 sin rebaja (descuento = precio del pais) y
+        // con envio gratuito (clase logistica "Envío gratuito" de la lista de Leroy).
+        { id: '2', nombre: 'Regla nº2 (sin rebaja, envío gratis)', sinRebaja: true, claseLogistica: 'Envío gratuito' },
+      ],
       mapa: [
         { campo: 'SKU', etiqueta: 'sku' },
         { campo: 'EAN', etiqueta: 'product-id' },

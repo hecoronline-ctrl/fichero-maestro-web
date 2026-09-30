@@ -31,9 +31,11 @@ export function buildOfferRows(
   pais: string,
   maestro: Maestro,
   avisos: string[],
+  reglaId?: string,
 ): FilaOferta[] {
   const cfg = mp.ofertas;
   if (!cfg) return [];
+  const regla = reglaDe(cfg, reglaId);
   const skuCampo = cfg.skuCampo ?? 'sku_canonico';
 
   const byEan = new Map<string, FilaMaestro>();
@@ -99,7 +101,7 @@ export function buildOfferRows(
           if (p === undefined) continue;
         }
         preciosPais.push(p);
-        if (rebaja) p = redondear(p - rebaja, 2);
+        if (rebaja && !regla?.sinRebaja) p = redondear(p - rebaja, 2);
         fila[`PrecioReal_${canal}`] = p;
         fila[`PrecioTachado_${canal}`] = redondear(p + cfg.tachadoMas, 2);
       }
@@ -109,6 +111,8 @@ export function buildOfferRows(
         fila['PrecioTachado'] = Math.max(...preciosPais);
       }
     }
+
+    if (regla?.claseLogistica) fila['ClaseLogistica'] = regla.claseLogistica;
 
     // --- Enriquecimiento config-driven (disponible para portales tipo Makro) ---
     if (cfg.quitarIvaPorPais && cfg.quitarIvaPorPais[pais] !== undefined) {
@@ -161,9 +165,10 @@ export async function generar(
   tipo: 'catalogo' | 'ofertas',
   pais: string,
   maestro: Maestro,
+  reglaId?: string,
 ): Promise<Resultado> {
   const plantilla = await fetchAsset(`plantillas/${rutaPlantilla(mp, tipo, pais)}`);
-  return generarConPlantilla(mp, tipo, pais, maestro, plantilla);
+  return generarConPlantilla(mp, tipo, pais, maestro, plantilla, reglaId);
 }
 
 /**
@@ -176,13 +181,14 @@ export function generarConPlantilla(
   pais: string,
   maestro: Maestro,
   plantilla: ArrayBuffer | Uint8Array,
+  reglaId?: string,
 ): Resultado {
   const cfg = mp[tipo];
   if (!cfg) throw new Error(`'${mp.nombre}' no tiene '${tipo}' implementado todavia.`);
 
   const avisos: string[] = [];
   const filas: (FilaMaestro | FilaOferta)[] =
-    tipo === 'ofertas' ? buildOfferRows(mp, pais, maestro, avisos) : filtrarTipos(cfg, maestro.catalogo);
+    tipo === 'ofertas' ? buildOfferRows(mp, pais, maestro, avisos, reglaId) : filtrarTipos(cfg, maestro.catalogo);
   if (filas.length === 0) throw new Error('No hay filas que escribir.');
 
   const libro = Libro.abrir(plantilla);
@@ -196,12 +202,23 @@ export function generarConPlantilla(
   const ext = ruta.slice(ruta.lastIndexOf('.'));
   const bytes = libro.guardar();
   return {
-    nombre: `${mp.id}_${pais}_${tipo}_${stamp()}${ext}`,
+    nombre: `${mp.id}_${pais}_${tipo}${sufijoRegla(cfg, tipo, reglaId)}_${stamp()}${ext}`,
     blob: blobXlsx(bytes),
     bytes,
     filas: escritas,
     avisos,
   };
+}
+
+/** Regla de precio elegida (por id) o la predeterminada (la primera). */
+export function reglaDe(cfg: BloqueCfg, id?: string) {
+  const reglas = cfg.reglasPrecio ?? [];
+  return reglas.find((r) => r.id === id) ?? reglas[0];
+}
+
+function sufijoRegla(cfg: BloqueCfg, tipo: string, id?: string): string {
+  const r = tipo === 'ofertas' ? reglaDe(cfg, id) : undefined;
+  return r ? `_regla${r.id}` : '';
 }
 
 /** Productos del catalogo que van en este portal, segun su tipo (TAQ, MET...). */
