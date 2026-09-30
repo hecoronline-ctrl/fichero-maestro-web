@@ -17,8 +17,9 @@ import Productos from './Productos';
 import './App.css';
 
 const MAESTRO_INCLUIDO = 'datos/FICHERO_MAESTRO2.xlsx';
-// Makro va en el mismo selector (Catalogo = fichas multi_template, Ofertas = offer_template).
-const PORTALES = MARKETPLACES;
+// Makro tiene su propia tarjeta (misma forma: Tipo + Pais), fuera del selector de portal.
+const PORTALES = MARKETPLACES.filter((m) => !m.flujoPropio);
+const MAKRO = [getMarketplace('Makro')!];
 const PAISES_MAKRO = getMarketplace('Makro')!.paises;
 
 type Fichero = { nombre: string; blob: Blob };
@@ -185,6 +186,17 @@ export default function App() {
         {vista === 'generar' && (
           <>
             <Generador
+              titulo="Generar ficheros"
+              portales={PORTALES}
+              maestro={maestro}
+              ocupado={ocupado}
+              setOcupado={setOcupado}
+              log={log}
+              onFicheros={setFicheros}
+            />
+            <Generador
+              titulo="Makro"
+              portales={MAKRO}
               maestro={maestro}
               ocupado={ocupado}
               setOcupado={setOcupado}
@@ -310,13 +322,15 @@ function paisesDe(portal: Marketplace, tipo: Tipo): string[] {
 }
 
 function Generador(props: {
+  titulo: string;
+  portales: Marketplace[];
   maestro: Maestro | null;
   ocupado: boolean;
   setOcupado: (b: boolean) => void;
   log: (t: string, tipo?: Linea['tipo']) => void;
   onFicheros: (f: Fichero[]) => void;
 }) {
-  const [portalId, setPortalId] = useState(PORTALES[0].id);
+  const [portalId, setPortalId] = useState(props.portales[0].id);
   const [tipo, setTipo] = useState<Tipo>('catalogo');
 
   const portal = getMarketplace(portalId)!;
@@ -367,18 +381,20 @@ function Generador(props: {
 
   return (
     <section className="tarjeta">
-      <h2>Generar ficheros</h2>
+      <h2>{props.titulo}</h2>
       <div className="fila">
-        <label>
-          Portal
-          <select value={portalId} onChange={(e) => setPortalId(e.target.value)}>
-            {PORTALES.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
+        {props.portales.length > 1 && (
+          <label>
+            Portal
+            <select value={portalId} onChange={(e) => setPortalId(e.target.value)}>
+              {props.portales.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nombre}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label>
           Tipo
           <select value={tipoValido} onChange={(e) => setTipo(e.target.value as Tipo)}>
