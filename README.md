@@ -166,7 +166,7 @@ solo. Mientras tanto, cada persona puede subir el suyo con "Fichero maestro".
 
 ## Makro · fichas de producto (multi_template)
 
-Tarjeta "Makro · fichas de producto": genera `multi_template {ES,IT,FR,DE,NL_PT}.xlsx`
+Uso interno (no aparece en la web): genera `multi_template {ES,IT,FR,DE,NL_PT}.xlsx`
 (PT y NL van juntos) desde el maestro. Motor `src/engine/makroFichas.ts`, normas en
 `src/config/makroFichas.ts`.
 
@@ -177,7 +177,7 @@ Tarjeta "Makro · fichas de producto": genera `multi_template {ES,IT,FR,DE,NL_PT
 - Plantillas vacías en `public/plantillas/Makro/multi_template *.xlsx`.
 - Tras enviar a Makro fichas nuevas o corregidas, regenerar ambas cosas con
   `npx tsx scripts/extraer-fichas-makro.ts` (lee los multi_template del escritorio).
-- Prueba: `npx tsx scripts/probar-fichas-makro.ts <carpeta> [todos|taquillas|bancos|nuevos]`.
+- Generar: `npx tsx scripts/probar-fichas-makro.ts <carpeta> [todos|taquillas|bancos|nuevos]`.
 
 Normas que aplica (rechazos reales de Makro):
 

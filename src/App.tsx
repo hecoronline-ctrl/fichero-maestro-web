@@ -4,12 +4,10 @@ import { readMaestro } from './engine/maestro';
 import type { Maestro } from './engine/maestro';
 import { generar } from './engine/generar';
 import { anadirFilasQueFaltan, generarMakro } from './engine/makro';
-import { repartirCsv } from './engine/csv';
+import { esCsvCombinado } from './engine/csv';
 import { PAISES_AMAZON, generarAmazon } from './engine/amazon';
 import { generarAmazonEsLoader } from './engine/amazonLoader';
 import { aplicarPreciosYStock } from './engine/ofertas';
-import { FICHEROS_FICHAS, generarFichasMakro } from './engine/makroFichas';
-import type { FichasEnviadas, FiltroFichas } from './engine/makroFichas';
 import { blobXlsx, descargar, fetchAsset } from './engine/excel';
 import { CLAVE_MAESTRO, borrar, claveMakro, guardar, leer } from './store';
 import Productos from './Productos';
@@ -160,11 +158,17 @@ export default function App() {
               ocupado={ocupado}
               onSubir={subirMaestro}
               onVolver={volverAlIncluido}
+              onDescargar={
+                bytesMaestro
+                  ? () => descargar(blobXlsx(bytesMaestro), 'FICHERO_MAESTRO2.xlsx')
+                  : undefined
+              }
             />
             <PreciosStock
               ocupado={ocupado}
               listo={bytesMaestro !== null}
               onAplicar={aplicarPrecioStock}
+              onError={(t) => log(t, 'error')}
             />
             <Resultados ficheros={ficheros} />
             <Registro lineas={lineas} onLimpiar={() => setLineas([])} />
@@ -174,13 +178,6 @@ export default function App() {
         {vista === 'generar' && (
           <>
             <Generador
-              maestro={maestro}
-              ocupado={ocupado}
-              setOcupado={setOcupado}
-              log={log}
-              onFicheros={setFicheros}
-            />
-            <FichasMakroPanel
               maestro={maestro}
               ocupado={ocupado}
               setOcupado={setOcupado}
@@ -218,6 +215,7 @@ function Maestros(props: {
   ocupado: boolean;
   onSubir: (f: File) => void;
   onVolver: () => void;
+  onDescargar?: () => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
   return (
@@ -231,6 +229,9 @@ function Maestros(props: {
         <span className={`chip ${props.propio ? 'chip-propio' : ''}`}>{props.origen}</span>
         <button onClick={() => input.current?.click()} disabled={props.ocupado}>
           Fichero maestro
+        </button>
+        <button className="secundario" onClick={props.onDescargar} disabled={!props.onDescargar}>
+          Descargar fichero maestro
         </button>
         {props.propio && (
           <button className="secundario" onClick={props.onVolver} disabled={props.ocupado}>
@@ -259,31 +260,34 @@ function PreciosStock(props: {
   ocupado: boolean;
   listo: boolean;
   onAplicar: (csvStock: string, csvPrecios: string) => void;
+  onError: (texto: string) => void;
 }) {
-  const [stock, setStock] = useState<File | null>(null);
-  const [precio, setPrecio] = useState<File | null>(null);
+  const [csv, setCsv] = useState<File | null>(null);
 
   const aplicar = async () => {
-    const csv = repartirCsv(precio ? await precio.text() : '', stock ? await stock.text() : '');
-    props.onAplicar(csv.stock, csv.precio);
+    if (!csv) return;
+    const texto = await csv.text();
+    if (!esCsvCombinado(texto)) {
+      props.onError(ERROR_CSV);
+      return;
+    }
+    props.onAplicar(texto, texto);
   };
 
   return (
     <section className="tarjeta">
       <h2>Precios y stock</h2>
       <p className="pista">
-        Los dos CSV de cada quincena. Actualizan la hoja Ofertas del maestro y con eso ya se pueden
-        generar las ofertas de Leroy y del resto de portales. Los precios de España valen también
-        para Portugal y para Leroy; Alemania y Reino Unido no se tocan. Si tienes el CSV único de
-        precios y stock (<code>nexus_precios_stock</code>), súbelo en cualquiera de los dos huecos.
+        El CSV de precios y stock (<code>nexus_precios_stock</code>). Actualiza la hoja Ofertas del
+        maestro y con eso ya se pueden generar las ofertas de todos los portales. Los precios de
+        España valen también para Portugal.
       </p>
       <div className="fila">
-        <ArchivoCsv etiqueta="CSV de stock" file={stock} onChange={setStock} />
-        <ArchivoCsv etiqueta="CSV de precios" file={precio} onChange={setPrecio} />
+        <ArchivoCsv etiqueta="CSV de precios y stock" file={csv} onChange={setCsv} />
       </div>
       <div className="fila">
-        <button onClick={aplicar} disabled={props.ocupado || !props.listo || (!stock && !precio)}>
-          Aplicar al maestro
+        <button onClick={aplicar} disabled={props.ocupado || !props.listo || !csv}>
+          Aplicar a los ficheros
         </button>
       </div>
     </section>
@@ -404,21 +408,20 @@ function MakroPanel(props: {
   onFicheros: (f: Fichero[]) => void;
 }) {
   const [pais, setPais] = useState('Todos');
-  const [precio, setPrecio] = useState<File | null>(null);
-  const [stock, setStock] = useState<File | null>(null);
+  const [csv, setCsv] = useState<File | null>(null);
 
   const aplicar = async () => {
-    if (!props.maestro) return;
-    if (!precio && !stock) {
-      props.log('Sube al menos uno de los dos CSV (precio o stock).', 'error');
+    if (!props.maestro || !csv) return;
+    const texto = await csv.text();
+    if (!esCsvCombinado(texto)) {
+      props.log(ERROR_CSV, 'error');
       return;
     }
     props.setOcupado(true);
     const salidas: Fichero[] = [];
     try {
-      const csv = repartirCsv(precio ? await precio.text() : '', stock ? await stock.text() : '');
-      const csvPrecio = csv.precio;
-      const csvStock = csv.stock;
+      const csvPrecio = texto;
+      const csvStock = texto;
       const lista = pais === 'Todos' ? PAISES_MAKRO : [pais];
 
       for (const p of lista) {
@@ -477,112 +480,14 @@ function MakroPanel(props: {
             ))}
           </select>
         </label>
-        <ArchivoCsv etiqueta="CSV de precios" file={precio} onChange={setPrecio} />
-        <ArchivoCsv etiqueta="CSV de stock" file={stock} onChange={setStock} />
+        <ArchivoCsv etiqueta="CSV de precios y stock" file={csv} onChange={setCsv} />
       </div>
       <div className="fila">
-        <button onClick={aplicar} disabled={props.ocupado || !props.maestro}>
-          Aplicar y generar
+        <button onClick={aplicar} disabled={props.ocupado || !props.maestro || !csv}>
+          Aplicar a los ficheros
         </button>
         <button className="secundario" onClick={restablecer} disabled={props.ocupado}>
           Restablecer plantillas
-        </button>
-      </div>
-    </section>
-  );
-}
-
-// ------------------------------------------------------- makro · fichas
-
-const FILTROS_FICHAS: { id: FiltroFichas; nombre: string }[] = [
-  { id: 'todos', nombre: 'Todos' },
-  { id: 'taquillas', nombre: 'Taquillas' },
-  { id: 'bancos', nombre: 'Bancos' },
-  { id: 'nuevos', nombre: 'Solo los que no están en Makro' },
-];
-
-function FichasMakroPanel(props: {
-  maestro: Maestro | null;
-  ocupado: boolean;
-  setOcupado: (b: boolean) => void;
-  log: (t: string, tipo?: Linea['tipo']) => void;
-  onFicheros: (f: Fichero[]) => void;
-}) {
-  const [fichero, setFichero] = useState('Todos');
-  const [filtro, setFiltro] = useState<FiltroFichas>('todos');
-
-  const generar = async () => {
-    if (!props.maestro) return;
-    props.setOcupado(true);
-    const salidas: Fichero[] = [];
-    try {
-      const enviadas = JSON.parse(
-        new TextDecoder().decode(await fetchAsset('datos/makro_fichas.json')),
-      ) as FichasEnviadas;
-      const lista = fichero === 'Todos' ? FICHEROS_FICHAS : [fichero];
-      for (const f of lista) {
-        try {
-          const plantilla = await fetchAsset(`plantillas/Makro/multi_template ${f}.xlsx`);
-          const r = generarFichasMakro(f, plantilla, props.maestro.catalogo, enviadas, filtro);
-          if (r.filas === 0) {
-            props.log(`Makro fichas ${f}: ningún producto con ese filtro.`);
-            continue;
-          }
-          salidas.push({ nombre: r.nombre, blob: r.blob });
-          props.log(
-            `Makro fichas ${f}: ${r.filas} productos → ${r.nombre}`,
-            r.errores.length ? 'error' : 'ok',
-          );
-          for (const e of r.errores) props.log(`   ERROR: ${e}`, 'error');
-          for (const a of r.avisos) props.log(`   aviso: ${a}`);
-        } catch (e) {
-          props.log(`Makro fichas ${f}: ${mensaje(e)}`, 'error');
-        }
-      }
-      props.onFicheros(salidas);
-      if (salidas.length === 1) descargar(salidas[0].blob, salidas[0].nombre);
-    } catch (e) {
-      props.log(`Makro fichas: ${mensaje(e)}`, 'error');
-    } finally {
-      props.setOcupado(false);
-    }
-  };
-
-  return (
-    <section className="tarjeta">
-      <h2>Makro · fichas de producto</h2>
-      <p className="pista">
-        Crea el <code>multi_template</code> de cada país desde el maestro, con las normas de Makro:
-        nombre de 150 caracteres como máximo, sin enlaces de Google Drive, instrucciones de
-        seguridad (GPSR), sin contacto ni redes en la descripción y las key features ya aceptadas.
-        Portugal y Holanda van en el mismo fichero (<code>NL_PT</code>).
-      </p>
-      <div className="fila">
-        <label>
-          País
-          <select value={fichero} onChange={(e) => setFichero(e.target.value)}>
-            <option value="Todos">Todos</option>
-            {FICHEROS_FICHAS.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Productos
-          <select value={filtro} onChange={(e) => setFiltro(e.target.value as FiltroFichas)}>
-            {FILTROS_FICHAS.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.nombre}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <div className="fila">
-        <button onClick={generar} disabled={props.ocupado || !props.maestro}>
-          Generar fichas
         </button>
       </div>
     </section>
@@ -746,6 +651,9 @@ function Registro({ lineas, onLimpiar }: { lineas: Linea[]; onLimpiar: () => voi
 }
 
 // ---------------------------------------------------------------- utilidades
+
+const ERROR_CSV =
+  'Ese archivo no es el CSV de precios y stock: tiene que traer las columnas Precio_Aplicado y Stock.';
 
 function mensaje(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
