@@ -210,9 +210,14 @@ export function generarConPlantilla(
   };
 }
 
-/** Regla de precio elegida (por id) o la predeterminada (la primera). */
+/** Reglas de precio activas (las `inactiva` no se ofrecen ni se aplican). */
+export function reglasActivas(cfg?: BloqueCfg) {
+  return (cfg?.reglasPrecio ?? []).filter((r) => !r.inactiva);
+}
+
+/** Regla de precio elegida (por id) o la predeterminada (la primera activa). */
 export function reglaDe(cfg: BloqueCfg, id?: string) {
-  const reglas = cfg.reglasPrecio ?? [];
+  const reglas = reglasActivas(cfg);
   return reglas.find((r) => r.id === id) ?? reglas[0];
 }
 
