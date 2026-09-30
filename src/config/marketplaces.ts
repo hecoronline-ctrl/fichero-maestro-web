@@ -43,8 +43,8 @@ export type BloqueCfg = {
   sinDescuentoGeneral?: boolean;
   /** Ofertas: pais cuyo precio se usa en un canal sin precio propio (si no, canal vacio). */
   canalSinPrecio?: string;
-  /** Ofertas: price general = el price (tachado) mas alto de los canales. */
-  tachadoGeneralMaxCanal?: boolean;
+  /** Ofertas: price general = el precio de pais mas caro de los canales (sin rebaja). */
+  tachadoGeneralMaxPais?: boolean;
   /** Ofertas: portales de la hoja Ofertas de los que sale el precio de cada pais. */
   preciosPaisDesde?: string[];
   /** Ofertas: precio tachado = precio real + esto (campos PrecioReal / PrecioTachado). */
@@ -135,8 +135,8 @@ export const MARKETPLACES: Marketplace[] = [
       canalSinPrecio: 'ES',
       // price de cada canal (tachado) = su discount-price + 30 EUR.
       tachadoMas: 30,
-      // price general (obligatorio) = el price mas alto de los canales.
-      tachadoGeneralMaxCanal: true,
+      // price general (obligatorio) = el precio de pais mas caro, sin rebaja (30/09/2026).
+      tachadoGeneralMaxPais: true,
       mapa: [
         { campo: 'SKU', etiqueta: 'sku' },
         { campo: 'EAN', etiqueta: 'product-id' },
