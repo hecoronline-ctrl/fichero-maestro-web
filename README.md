@@ -78,7 +78,7 @@ Para comprobarlo contra unos CSV concretos:
 npx tsx scripts/probar-ofertas.ts <maestro.xlsx> <stock.csv> <precios.csv> [Marketplace]
 ```
 
-## Amazon (beta)
+## Amazon
 
 - **ES · Precio y stock**: plantilla oficial de Seller Central
   `public/plantillas/Amazon/ListingLoader_ES.xlsm` ("añadir ofertas a productos que ya
@@ -89,8 +89,9 @@ npx tsx scripts/probar-ofertas.ts <maestro.xlsx> <stock.csv> <precios.csv> [Mark
   - Precio, stock y plazo: hoja Ofertas (Amazon ES; si no hay, otro portal de España).
   - Plantilla de envío por modelo: `AMAZON_ES_ENVIO` en `src/config/marketplaces.ts`.
   - Prueba: `npx tsx scripts/probar-amazon-es.ts <salida.xlsm> [--sku-prueba]`.
-- **El resto** (catálogo y los demás países) sale como flat file `.txt` sin validar:
+- **El resto** (catálogo y los demás países: IT, FR, UK, DE) sale como flat file `.txt` sin validar:
   faltan las plantillas de esos países y sus SKU/ASIN.
+- **Portugal no está**: Amazon no tiene tienda en PT; los clientes portugueses compran en amazon.es.
 
 ## Persistencia sin coste
 

@@ -5,9 +5,9 @@
  * forma de un flat file de Amazon (3 filas de cabecera + datos) y con nombres de
  * campo reales, pero la plantilla buena es la .xlsm que Amazon da por categoria
  * y aun no la tenemos. Lo que falta para cerrarlo:
- *   1. Un flat file de ejemplo descargado de Seller Central ES / IT / PT, para
+ *   1. Un flat file de ejemplo descargado de Seller Central de cada pais, para
  *      copiar el TemplateType, la version y el orden exacto de columnas.
- *   2. Los SKU y ASIN de ES, IT y PT: el maestro solo trae amazon_sku_de/fr/uk.
+ *   2. Los SKU y ASIN de IT (ES ya esta en el maestro; DE/FR/UK solo los 20 antiguos).
  *      Mientras tanto el SKU de esos paises se DEDUCE (sku_canonico + _PAIS),
  *      copiando el patron que ya usa Alemania (R.EMD.001_G_DE).
  *   3. Filas de Amazon en la hoja Ofertas: ahora mismo hay 0, asi que el precio
@@ -19,12 +19,13 @@
  */
 import type { FilaMaestro, FilaOferta, Maestro } from './maestro';
 
-export const PAISES_AMAZON = ['ES', 'PT', 'IT', 'FR', 'UK', 'DE'];
+// Sin Portugal: Amazon no tiene tienda en PT, los clientes portugueses compran en
+// amazon.es (decidido con el usuario el 30/09/2026).
+export const PAISES_AMAZON = ['ES', 'IT', 'FR', 'UK', 'DE'];
 
 /** Por pais: idioma de los textos, set de imagenes y moneda. */
 const CFG: Record<string, { lang: string; img: string; moneda: string }> = {
   ES: { lang: 'es', img: 'es', moneda: 'EUR' },
-  PT: { lang: 'pt', img: 'uk', moneda: 'EUR' }, // PT no tiene imagenes propias en el maestro
   IT: { lang: 'it', img: 'it', moneda: 'EUR' },
   FR: { lang: 'fr', img: 'fr', moneda: 'EUR' },
   UK: { lang: 'en', img: 'uk', moneda: 'GBP' },
@@ -167,7 +168,6 @@ export function generarAmazon(
       `${sinPrecioPropio} precios prestados de otro portal: la hoja Ofertas no tiene filas de Amazon.`,
     );
   }
-  if (pais === 'PT') avisos.push('PT no tiene imagenes propias en el maestro: se usan las de UK.');
   if (pais === 'UK') avisos.push('UK: el precio va tal cual, en euros. No se convierte a GBP.');
 
   const cab1 = [
