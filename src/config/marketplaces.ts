@@ -61,9 +61,11 @@ export type BloqueCfg = {
   preciosPaisDesde?: string[];
   /** Ofertas: precio tachado = precio real + esto (campos PrecioReal / PrecioTachado). */
   tachadoMas?: number;
-  /** Catalogo: solo los productos de estos tipos del maestro (columna `tipo`). */
+  /** Ofertas: filas de la hoja Ofertas de este marketplace (por defecto, el id del portal). */
+  marketplaceOfertas?: string;
+  /** Catalogo y ofertas: solo los productos de estos tipos del maestro (columna `tipo`). */
   soloTipos?: string[];
-  /** Catalogo: todos los productos menos los de estos tipos. */
+  /** Catalogo y ofertas: todos los productos menos los de estos tipos. */
   excluirTipos?: string[];
   mapa: MapaItem[];
 };
@@ -75,14 +77,95 @@ export type Marketplace = {
   paises: string[];
   catalogo?: BloqueCfg;
   ofertas?: BloqueCfg;
+  /** Catalogo: genera el de cada uno de estos portales (p. ej. Leroy todo = taquillas + bancos). */
+  grupoCatalogo?: string[];
   /** Flujo propio, no se genera desde el maestro (Makro). */
   flujoPropio?: boolean;
 };
 
+/** Ofertas de Leroy Merlin (plantilla unica para los 4 paises). */
+const LEROY_OFERTAS: BloqueCfg = {
+  // Todas las ofertas de Leroy salen de las filas LeroyMerlin de la hoja Ofertas.
+  marketplaceOfertas: 'LeroyMerlin',
+    // Un unico fichero de ofertas para los 4 paises (plantilla Mirakl de 97 columnas
+    // descargada de Leroy el 28/09/2026). Cabecera por CODIGO (fila 2), datos desde la 3.
+    paises: ['ALL'],
+    plantilla: 'Leroy Merlin/offers-Leroy-All.xlsx',
+    hoja: 'Data',
+    filaCabecera: 2,
+    filaDatos: 3,
+    skuCampo: 'sku_leroy',
+    // "Regla Leroy de precios nº1" (asi la llama el usuario, 30/09/2026).
+    // Canales de Leroy:
+    //   001 = Francia, 002 = Espana, 003 = Portugal, 005 = Italia.
+    // discount-price de cada canal = precio que queremos en ese pais (filas LeroyMerlin
+    // ALL/FR/IT de la hoja Ofertas, las actualiza el CSV). Portugal lleva el de Espana,
+    // y un pais sin precio propio tambien (ningun canal queda vacio).
+    canales: [
+      { canal: '001', pais: 'FR', rebaja: 40 },
+      { canal: '002', pais: 'ES', rebaja: 30 },
+      { canal: '003', pais: 'PT', precioDe: 'ES', rebaja: 30 },
+      { canal: '005', pais: 'IT', rebaja: 40 },
+    ],
+    // discount-price de canal = precio del pais - rebaja (FR/IT 40, ES/PT 30; 30/09/2026).
+    // El discount-price general va vacio.
+    sinDescuentoGeneral: true,
+    preciosPaisDesde: ['LeroyMerlin'],
+    canalSinPrecio: 'ES',
+    // price de cada canal (tachado) = su discount-price + 30 EUR.
+    tachadoMas: 30,
+    // price general (obligatorio) = el precio de pais mas caro, sin rebaja (30/09/2026).
+    tachadoGeneralMaxPais: true,
+    reglasPrecio: [
+      // Desactivada el 30/09/2026 a peticion del usuario (volvera mas adelante):
+      // para reactivarla, quitar `inactiva`.
+      { id: '1', nombre: 'Regla nº1 (con rebaja)', inactiva: true },
+      // Regla nº2 (30/09/2026): la nº1 sin rebaja (descuento = precio del pais) y
+      // con envio gratuito (clase logistica "Envío gratuito" de la lista de Leroy).
+      { id: '2', nombre: 'Regla nº2 (sin rebaja, envío gratis)', sinRebaja: true, claseLogistica: 'Envío gratuito' },
+    ],
+    mapa: [
+      { campo: 'SKU', etiqueta: 'sku' },
+      { campo: 'EAN', etiqueta: 'product-id' },
+      { literal: 'EAN', etiqueta: 'product-id-type' },
+      { campo: 'PrecioTachado', etiqueta: 'price' },
+      { campo: 'PrecioReal', etiqueta: 'discount-price' },
+      { campo: 'Stock', etiqueta: 'quantity' },
+      { campo: 'Estado', etiqueta: 'state' },
+      { campo: 'ClaseLogistica', etiqueta: 'logistic-class' },
+      { campo: 'PlazoEnvio', etiqueta: 'leadtime-to-ship' },
+      { campo: 'Accion', etiqueta: 'update-delete' },
+      { campo: 'PrecioTachado_001', etiqueta: 'price[channel=001]' },
+      { campo: 'PrecioReal_001', etiqueta: 'discount-price[channel=001]' },
+      { campo: 'PrecioTachado_002', etiqueta: 'price[channel=002]' },
+      { campo: 'PrecioReal_002', etiqueta: 'discount-price[channel=002]' },
+      { campo: 'PrecioTachado_003', etiqueta: 'price[channel=003]' },
+      { campo: 'PrecioReal_003', etiqueta: 'discount-price[channel=003]' },
+      { campo: 'PrecioTachado_005', etiqueta: 'price[channel=005]' },
+      { campo: 'PrecioReal_005', etiqueta: 'discount-price[channel=005]' },
+      { literal: 'Standard', etiqueta: 'vat-lmfr' },
+      { literal: 'Standard', etiqueta: 'vat-lmit' },
+      { literal: 'Standard', etiqueta: 'vat-lmes' },
+      { literal: 'Standard', etiqueta: 'vat-lmpt' },
+      { literal: 'ES', etiqueta: 'shipment-origin' },
+      { literal: 'LMES,LMFR,LMIT,LMPT', etiqueta: 'exclusive-channels' },
+    ],
+};
+
 export const MARKETPLACES: Marketplace[] = [
+  // Leroy Merlin todo = catalogo de taquillas + catalogo de bancos + todas las ofertas.
+  {
+    id: 'LeroyMerlinTodo',
+    nombre: 'Leroy Merlin todo',
+    familia: 'Mirakl',
+    paises: ['ES', 'IT', 'FR', 'PT'],
+    grupoCatalogo: ['LeroyMerlin', 'LeroyMerlinBancos'],
+    ofertas: LEROY_OFERTAS,
+  },
+
   {
     id: 'LeroyMerlin',
-    nombre: 'Leroy Merlin',
+    nombre: 'Leroy Merlin taquillas',
     familia: 'Mirakl',
     // Un fichero por idioma: titulos/descripciones de los 4 idiomas van en todos;
     // lo que cambia es el set de imagenes (un unico set por fichero).
@@ -120,79 +203,15 @@ export const MARKETPLACES: Marketplace[] = [
         { campo: 'img_{IMG}_6', etiqueta: 'media_6' },
       ],
     },
-    ofertas: {
-      // Un unico fichero de ofertas para los 4 paises (plantilla Mirakl de 97 columnas
-      // descargada de Leroy el 28/09/2026). Cabecera por CODIGO (fila 2), datos desde la 3.
-      paises: ['ALL'],
-      plantilla: 'Leroy Merlin/offers-Leroy-All.xlsx',
-      hoja: 'Data',
-      filaCabecera: 2,
-      filaDatos: 3,
-      skuCampo: 'sku_leroy',
-      // "Regla Leroy de precios nº1" (asi la llama el usuario, 30/09/2026).
-      // Canales de Leroy:
-      //   001 = Francia, 002 = Espana, 003 = Portugal, 005 = Italia.
-      // discount-price de cada canal = precio que queremos en ese pais (filas LeroyMerlin
-      // ALL/FR/IT de la hoja Ofertas, las actualiza el CSV). Portugal lleva el de Espana,
-      // y un pais sin precio propio tambien (ningun canal queda vacio).
-      canales: [
-        { canal: '001', pais: 'FR', rebaja: 40 },
-        { canal: '002', pais: 'ES', rebaja: 30 },
-        { canal: '003', pais: 'PT', precioDe: 'ES', rebaja: 30 },
-        { canal: '005', pais: 'IT', rebaja: 40 },
-      ],
-      // discount-price de canal = precio del pais - rebaja (FR/IT 40, ES/PT 30; 30/09/2026).
-      // El discount-price general va vacio.
-      sinDescuentoGeneral: true,
-      preciosPaisDesde: ['LeroyMerlin'],
-      canalSinPrecio: 'ES',
-      // price de cada canal (tachado) = su discount-price + 30 EUR.
-      tachadoMas: 30,
-      // price general (obligatorio) = el precio de pais mas caro, sin rebaja (30/09/2026).
-      tachadoGeneralMaxPais: true,
-      reglasPrecio: [
-        // Desactivada el 30/09/2026 a peticion del usuario (volvera mas adelante):
-        // para reactivarla, quitar `inactiva`.
-        { id: '1', nombre: 'Regla nº1 (con rebaja)', inactiva: true },
-        // Regla nº2 (30/09/2026): la nº1 sin rebaja (descuento = precio del pais) y
-        // con envio gratuito (clase logistica "Envío gratuito" de la lista de Leroy).
-        { id: '2', nombre: 'Regla nº2 (sin rebaja, envío gratis)', sinRebaja: true, claseLogistica: 'Envío gratuito' },
-      ],
-      mapa: [
-        { campo: 'SKU', etiqueta: 'sku' },
-        { campo: 'EAN', etiqueta: 'product-id' },
-        { literal: 'EAN', etiqueta: 'product-id-type' },
-        { campo: 'PrecioTachado', etiqueta: 'price' },
-        { campo: 'PrecioReal', etiqueta: 'discount-price' },
-        { campo: 'Stock', etiqueta: 'quantity' },
-        { campo: 'Estado', etiqueta: 'state' },
-        { campo: 'ClaseLogistica', etiqueta: 'logistic-class' },
-        { campo: 'PlazoEnvio', etiqueta: 'leadtime-to-ship' },
-        { campo: 'Accion', etiqueta: 'update-delete' },
-        { campo: 'PrecioTachado_001', etiqueta: 'price[channel=001]' },
-        { campo: 'PrecioReal_001', etiqueta: 'discount-price[channel=001]' },
-        { campo: 'PrecioTachado_002', etiqueta: 'price[channel=002]' },
-        { campo: 'PrecioReal_002', etiqueta: 'discount-price[channel=002]' },
-        { campo: 'PrecioTachado_003', etiqueta: 'price[channel=003]' },
-        { campo: 'PrecioReal_003', etiqueta: 'discount-price[channel=003]' },
-        { campo: 'PrecioTachado_005', etiqueta: 'price[channel=005]' },
-        { campo: 'PrecioReal_005', etiqueta: 'discount-price[channel=005]' },
-        { literal: 'Standard', etiqueta: 'vat-lmfr' },
-        { literal: 'Standard', etiqueta: 'vat-lmit' },
-        { literal: 'Standard', etiqueta: 'vat-lmes' },
-        { literal: 'Standard', etiqueta: 'vat-lmpt' },
-        { literal: 'ES', etiqueta: 'shipment-origin' },
-        { literal: 'LMES,LMFR,LMIT,LMPT', etiqueta: 'exclusive-channels' },
-      ],
-    },
+    // Solo las ofertas de taquillas (los bancos van en Leroy Merlin bancos).
+    ofertas: { ...LEROY_OFERTAS, excluirTipos: ['MET'] },
   },
 
   // Bancos metalicos (tipo MET) en Leroy: otra categoria ("Banco de interior") con
   // sus propios atributos, asi que van en otra plantilla (exportada de Leroy).
-  // Las ofertas de los bancos salen en el fichero de ofertas de Leroy Merlin.
   {
     id: 'LeroyMerlinBancos',
-    nombre: 'Leroy Merlin · Bancos',
+    nombre: 'Leroy Merlin bancos',
     familia: 'Mirakl',
     paises: ['ES', 'IT', 'FR', 'PT'],
     catalogo: {
@@ -251,6 +270,8 @@ export const MARKETPLACES: Marketplace[] = [
         { desdePlantilla: true, etiqueta: 'feature_25415_' },
       ],
     },
+    // Solo las ofertas de los bancos.
+    ofertas: { ...LEROY_OFERTAS, soloTipos: ['MET'] },
   },
 
   // Makro NO se genera desde el maestro: su plantilla offer_template {PAIS}.xlsx

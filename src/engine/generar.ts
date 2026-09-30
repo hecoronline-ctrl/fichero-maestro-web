@@ -62,7 +62,7 @@ export function buildOfferRows(
   let sinSku = 0;
 
   for (const o of maestro.ofertas) {
-    if (String(o['Marketplace'] ?? '') !== mp.id) continue;
+    if (String(o['Marketplace'] ?? '') !== (cfg.marketplaceOfertas ?? mp.id)) continue;
     const pa = String(o['Pais'] ?? '').trim();
     if (!(pa === pais || pa === 'ALL' || pais === 'ALL')) continue;
     // Con precios por canal, las filas de pais solo aportan el precio de su canal.
@@ -73,6 +73,8 @@ export function buildOfferRows(
     }
     const ean = String(o['EAN'] ?? '').trim();
     const cat = byEan.get(ean);
+    // Solo los tipos de producto de este portal (taquillas / bancos).
+    if (cat && !tipoPermitido(cfg, cat)) continue;
     const sku = cat ? cat[skuCampo] : null;
     if (isEmpty(sku)) {
       sinSku++;
@@ -224,13 +226,17 @@ export function reglaDe(cfg: BloqueCfg, id?: string) {
   return reglas.find((r) => r.id === id) ?? reglas[0];
 }
 
+/** True si el producto va en este portal, segun su tipo (TAQ, MET...). */
+function tipoPermitido(cfg: BloqueCfg, f: FilaMaestro): boolean {
+  const t = String(f['tipo'] ?? '').trim().toUpperCase();
+  if (cfg.soloTipos && !cfg.soloTipos.includes(t)) return false;
+  if (cfg.excluirTipos && cfg.excluirTipos.includes(t)) return false;
+  return true;
+}
+
 /** Productos del catalogo que van en este portal, segun su tipo (TAQ, MET...). */
 function filtrarTipos(cfg: BloqueCfg, catalogo: FilaMaestro[]): FilaMaestro[] {
-  const tipo = (f: FilaMaestro) => String(f['tipo'] ?? '').trim().toUpperCase();
-  let filas = catalogo;
-  if (cfg.soloTipos) filas = filas.filter((f) => cfg.soloTipos!.includes(tipo(f)));
-  if (cfg.excluirTipos) filas = filas.filter((f) => !cfg.excluirTipos!.includes(tipo(f)));
-  return filas;
+  return catalogo.filter((f) => tipoPermitido(cfg, f));
 }
 
 /** Valor del maestro, traducido al del portal si el item trae `valores`. */

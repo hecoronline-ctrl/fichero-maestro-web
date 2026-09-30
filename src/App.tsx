@@ -314,10 +314,13 @@ type Caso = { tipo: Tipo; pais: string };
 /** Tipos y paises de un portal. Makro no sale del config generico (flujo propio). */
 function tiposDe(portal: Marketplace): Tipo[] {
   if (portal.id === 'Makro') return ['catalogo', 'ofertas'];
-  return (['catalogo', 'ofertas'] as const).filter((t) => portal[t]);
+  return (['catalogo', 'ofertas'] as const).filter(
+    (t) => portal[t] || (t === 'catalogo' && portal.grupoCatalogo),
+  );
 }
 function paisesDe(portal: Marketplace, tipo: Tipo): string[] {
   if (portal.id === 'Makro') return tipo === 'catalogo' ? FICHEROS_FICHAS : PAISES_MAKRO;
+  if (tipo === 'catalogo' && portal.grupoCatalogo) return portal.paises;
   return getPaises(portal, tipo);
 }
 
@@ -358,10 +361,17 @@ function Generador(props: {
             if (f) salidas.push(f);
             continue;
           }
-          const r = await generar(portal, caso.tipo, caso.pais, props.maestro);
-          salidas.push({ nombre: r.nombre, blob: r.blob });
-          props.log(`${etiqueta}: ${r.filas} filas → ${r.nombre}`, 'ok');
-          for (const a of r.avisos) props.log(`   aviso: ${a}`);
+          // "Leroy Merlin todo": el catalogo son los de taquillas y bancos.
+          const subportales =
+            caso.tipo === 'catalogo' && portal.grupoCatalogo
+              ? portal.grupoCatalogo.map((id) => getMarketplace(id)!)
+              : [portal];
+          for (const sub of subportales) {
+            const r = await generar(sub, caso.tipo, caso.pais, props.maestro);
+            salidas.push({ nombre: r.nombre, blob: r.blob });
+            props.log(`${sub.nombre} ${caso.pais} ${caso.tipo}: ${r.filas} filas → ${r.nombre}`, 'ok');
+            for (const a of r.avisos) props.log(`   aviso: ${a}`);
+          }
         } catch (e) {
           props.log(`${etiqueta}: ${mensaje(e)}`, 'error');
         }
