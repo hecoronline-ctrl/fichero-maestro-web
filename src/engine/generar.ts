@@ -202,7 +202,7 @@ export function generarConPlantilla(
   const ext = ruta.slice(ruta.lastIndexOf('.'));
   const bytes = libro.guardar();
   return {
-    nombre: `${mp.id}_${pais}_${tipo}${sufijoRegla(cfg, tipo, reglaId)}_${stamp()}${ext}`,
+    nombre: `${mp.id}_${pais}_${tipo}_${stamp()}${ext}`,
     blob: blobXlsx(bytes),
     bytes,
     filas: escritas,
@@ -210,7 +210,10 @@ export function generarConPlantilla(
   };
 }
 
-/** Reglas de precio activas (las `inactiva` no se ofrecen ni se aplican). */
+/**
+ * Reglas de precio activas (las `inactiva` no se aplican). Son internas: no se
+ * muestran en la web ni en el nombre del fichero; se aplica la primera activa.
+ */
 export function reglasActivas(cfg?: BloqueCfg) {
   return (cfg?.reglasPrecio ?? []).filter((r) => !r.inactiva);
 }
@@ -219,11 +222,6 @@ export function reglasActivas(cfg?: BloqueCfg) {
 export function reglaDe(cfg: BloqueCfg, id?: string) {
   const reglas = reglasActivas(cfg);
   return reglas.find((r) => r.id === id) ?? reglas[0];
-}
-
-function sufijoRegla(cfg: BloqueCfg, tipo: string, id?: string): string {
-  const r = tipo === 'ofertas' ? reglaDe(cfg, id) : undefined;
-  return r ? `_regla${r.id}` : '';
 }
 
 /** Productos del catalogo que van en este portal, segun su tipo (TAQ, MET...). */

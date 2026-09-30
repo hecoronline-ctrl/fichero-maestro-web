@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { MARKETPLACES, getMarketplace, getPaises } from './config/marketplaces';
 import { readMaestro } from './engine/maestro';
 import type { Maestro } from './engine/maestro';
-import { generar, reglasActivas } from './engine/generar';
+import { generar } from './engine/generar';
 import { anadirFilasQueFaltan, generarMakro } from './engine/makro';
 import { repartirCsv } from './engine/csv';
 import { PAISES_AMAZON, generarAmazon } from './engine/amazon';
@@ -308,9 +308,6 @@ function Generador(props: {
   const paises = getPaises(portal, tipoValido);
   const [pais, setPais] = useState(paises[0]);
   const paisValido = paises.includes(pais) ? pais : paises[0];
-  const reglas = tipoValido === 'ofertas' ? reglasActivas(portal.ofertas) : [];
-  const [regla, setRegla] = useState('');
-  const reglaValida = reglas.some((r) => r.id === regla) ? regla : reglas[0]?.id;
 
   const ejecutar = async (casos: { tipo: 'catalogo' | 'ofertas'; pais: string }[]) => {
     if (!props.maestro) return;
@@ -319,7 +316,7 @@ function Generador(props: {
     try {
       for (const caso of casos) {
         try {
-          const r = await generar(portal, caso.tipo, caso.pais, props.maestro, reglaValida);
+          const r = await generar(portal, caso.tipo, caso.pais, props.maestro);
           salidas.push({ nombre: r.nombre, blob: r.blob });
           props.log(`${portal.nombre} ${caso.pais} ${caso.tipo}: ${r.filas} filas → ${r.nombre}`, 'ok');
           for (const a of r.avisos) props.log(`   aviso: ${a}`);
@@ -377,18 +374,6 @@ function Generador(props: {
             ))}
           </select>
         </label>
-        {reglas.length > 0 && (
-          <label>
-            Regla de precios
-            <select value={reglaValida} onChange={(e) => setRegla(e.target.value)}>
-              {reglas.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.nombre}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
       </div>
       <div className="fila">
         <button
