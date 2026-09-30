@@ -5,6 +5,8 @@
  * Guarda:
  *   - 'maestro'       -> el FICHERO_MAESTRO2.xlsx que el usuario haya subido
  *   - 'makro:{PAIS}'  -> la plantilla de Makro ya actualizada (nueva base)
+ *   - 'csv'           -> el ultimo CSV de precios y stock aplicado en Datos de origen
+ *                        (lo usa Makro al generar sus ofertas)
  * Si no hay nada guardado, se usa el fichero que viene incluido con la web.
  */
 const DB = 'twinthink-marketplaces';
@@ -73,4 +75,5 @@ export async function borrar(clave: string): Promise<void> {
 }
 
 export const CLAVE_MAESTRO = 'maestro';
+export const CLAVE_CSV = 'csv';
 export const claveMakro = (pais: string) => `makro:${pais}`;

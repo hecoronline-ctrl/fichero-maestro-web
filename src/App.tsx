@@ -9,7 +9,7 @@ import { PAISES_AMAZON, generarAmazon } from './engine/amazon';
 import { generarAmazonEsLoader } from './engine/amazonLoader';
 import { aplicarPreciosYStock } from './engine/ofertas';
 import { blobXlsx, descargar, fetchAsset } from './engine/excel';
-import { CLAVE_MAESTRO, borrar, claveMakro, guardar, leer } from './store';
+import { CLAVE_CSV, CLAVE_MAESTRO, borrar, claveMakro, guardar, leer } from './store';
 import Productos from './Productos';
 import './App.css';
 
@@ -91,12 +91,15 @@ export default function App() {
   };
 
   // ---- CSV quincenales de precio y stock -> hoja Ofertas del maestro ----
-  const aplicarPrecioStock = async (csvStock: string, csvPrecios: string) => {
+  const aplicarPrecioStock = async (csv: string, nombre: string) => {
     if (!bytesMaestro) return;
     setOcupado(true);
     try {
-      const r = aplicarPreciosYStock(bytesMaestro, csvStock, csvPrecios);
+      const r = aplicarPreciosYStock(bytesMaestro, csv, csv);
       await guardar(CLAVE_MAESTRO, `FICHERO_MAESTRO2.xlsx (${hoy()})`, r.bytes);
+      // Makro no sale del maestro sino de su plantilla + este CSV: se guarda para
+      // que "Generar ficheros" lo use sin volver a subirlo.
+      await guardar(CLAVE_CSV, `${nombre} (${hoy()})`, new TextEncoder().encode(csv));
       await cargarMaestro();
       log(
         `Ofertas actualizadas: ${r.precios} precios y ${r.stocks} stocks. ` +
@@ -259,7 +262,7 @@ function Maestros(props: {
 function PreciosStock(props: {
   ocupado: boolean;
   listo: boolean;
-  onAplicar: (csvStock: string, csvPrecios: string) => void;
+  onAplicar: (csv: string, nombre: string) => void;
   onError: (texto: string) => void;
 }) {
   const [csv, setCsv] = useState<File | null>(null);
@@ -271,7 +274,7 @@ function PreciosStock(props: {
       props.onError(ERROR_CSV);
       return;
     }
-    props.onAplicar(texto, texto);
+    props.onAplicar(texto, csv.name);
   };
 
   return (
@@ -408,15 +411,20 @@ function MakroPanel(props: {
   onFicheros: (f: Fichero[]) => void;
 }) {
   const [pais, setPais] = useState('Todos');
-  const [csv, setCsv] = useState<File | null>(null);
 
   const aplicar = async () => {
-    if (!props.maestro || !csv) return;
-    const texto = await csv.text();
-    if (!esCsvCombinado(texto)) {
-      props.log(ERROR_CSV, 'error');
+    if (!props.maestro) return;
+    // Precio y stock: el ultimo CSV aplicado en "Datos de origen".
+    const guardado = await leer(CLAVE_CSV);
+    if (!guardado) {
+      props.log(
+        'Makro: primero sube el CSV de precios y stock en Datos de origen → Precios y stock.',
+        'error',
+      );
       return;
     }
+    const texto = new TextDecoder().decode(guardado.bytes);
+    props.log(`Makro: precios y stock de ${guardado.nombre}.`);
     props.setOcupado(true);
     const salidas: Fichero[] = [];
     try {
@@ -467,7 +475,11 @@ function MakroPanel(props: {
     <section className="tarjeta">
       <h2>Makro · precio y stock</h2>
       {/* Makro no se reconstruye desde el maestro: su plantilla ya trae los precios
-          buenos. Solo se cambia lo que venga en los CSV; lo que no aparezca, no se toca. */}
+          buenos. Solo se cambia lo que venga en el ultimo CSV aplicado en Datos de
+          origen; lo que no aparezca, no se toca. */}
+      <p className="pista">
+        Usa los precios y el stock que hayas aplicado en Datos de origen.
+      </p>
       <div className="fila">
         <label>
           País
@@ -480,11 +492,10 @@ function MakroPanel(props: {
             ))}
           </select>
         </label>
-        <ArchivoCsv etiqueta="CSV de precios y stock" file={csv} onChange={setCsv} />
       </div>
       <div className="fila">
-        <button onClick={aplicar} disabled={props.ocupado || !props.maestro || !csv}>
-          Aplicar a los ficheros
+        <button onClick={aplicar} disabled={props.ocupado || !props.maestro}>
+          Generar
         </button>
         <button className="secundario" onClick={restablecer} disabled={props.ocupado}>
           Restablecer plantillas
