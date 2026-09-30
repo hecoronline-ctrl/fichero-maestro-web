@@ -163,3 +163,17 @@ Cada `git push` vuelve a desplegar automáticamente.
 El maestro incluido está en `public/datos/FICHERO_MAESTRO2.xlsx`. Para que tu
 equipo vea una versión nueva, reemplaza ese fichero y haz push: Vercel redespliega
 solo. Mientras tanto, cada persona puede subir el suyo con "Fichero maestro".
+
+## Reglas de Makro para fichas de producto (multi_template)
+
+La web todavía no genera las fichas de producto de Makro, pero cuando se añada
+debe cumplir lo que Makro ya ha rechazado:
+
+- `Product name XX`: **máximo 150 caracteres** (ErrorPV0602). En IT se acorta
+  quitando "di alta qualità".
+- `Instruction manual file XX`: **nunca enlaces de Google Drive** (ErrorIM02).
+  Dejarlo vacío o usar Cloudinary.
+- `Product safety instructions XX` obligatorio (GPSR, ERROR-0097).
+- Key features distintas de la descripción (ErrorKF01) y sin contactos/redes
+  en la descripción (ErrorPD02).
+- Categoría siempre `f08b9fab-b6b0-40b7-bd95-e36dc73881f0`.
