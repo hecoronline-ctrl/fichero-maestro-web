@@ -412,7 +412,10 @@ function Generador(props: {
           onClick={() => ejecutar(todos())}
           disabled={props.ocupado || !props.maestro}
         >
-          Generar todo de {portal.nombre} ({todos().length})
+          {tipos.length > 1
+            ? `Generar catálogo y ofertas de ${portal.nombre}`
+            : `Generar ${tipos[0] === 'catalogo' ? 'catálogo' : 'ofertas'} de ${portal.nombre}`}{' '}
+          ({todos().length})
         </button>
       </div>
     </section>
