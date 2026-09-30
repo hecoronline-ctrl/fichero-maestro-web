@@ -412,10 +412,7 @@ function Generador(props: {
           onClick={() => ejecutar(todos())}
           disabled={props.ocupado || !props.maestro}
         >
-          {tipos.length > 1
-            ? `Generar catálogo y ofertas de ${portal.nombre}`
-            : `Generar ${tipos[0] === 'catalogo' ? 'catálogo' : 'ofertas'} de ${portal.nombre}`}{' '}
-          ({todos().length})
+          Generar todo de {portal.nombre} ({todos().length})
         </button>
       </div>
     </section>
@@ -557,7 +554,7 @@ function AmazonPanel(props: {
     <section className="tarjeta">
       <h2>Amazon</h2>
       <p className="pista">
-        <strong>España · Precio y stock</strong> sale en la plantilla oficial de Seller Central
+        <strong>España · Ofertas</strong> sale en la plantilla oficial de Seller Central
         (<code>ListingLoader.xlsm</code>, para productos que ya están en Amazon) con las
         referencias que tienen SKU de Amazon ES en el maestro.
       </p>
@@ -566,7 +563,7 @@ function AmazonPanel(props: {
           Tipo
           <select value={tipo} onChange={(e) => setTipo(e.target.value as 'catalogo' | 'ofertas')}>
             <option value="catalogo">Catálogo</option>
-            <option value="ofertas">Precio y stock</option>
+            <option value="ofertas">Ofertas</option>
           </select>
         </label>
         <label>
