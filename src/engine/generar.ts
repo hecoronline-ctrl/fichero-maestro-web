@@ -85,7 +85,7 @@ export function buildOfferRows(
       fila['PrecioReal'] = real;
       fila['PrecioTachado'] = redondear(real + cfg.tachadoMas, 2);
       const precioDe = (pc: string) => (pc === 'ES' ? real : precioPais.get(`${ean}|${pc}`));
-      for (const { canal, pais: pc, precioDe: origen } of cfg.canales ?? []) {
+      for (const { canal, pais: pc, precioDe: origen, rebaja } of cfg.canales ?? []) {
         let p = precioDe(origen ?? pc);
         // Salvaguarda: un precio de pais por debajo de la mitad del de Espana es un dato malo.
         if (p !== undefined && p < real / 2) {
@@ -97,14 +97,16 @@ export function buildOfferRows(
           if (cfg.canalSinPrecio) p = precioDe(cfg.canalSinPrecio);
           if (p === undefined) continue;
         }
+        if (rebaja) p = redondear(p - rebaja, 2);
         fila[`PrecioReal_${canal}`] = p;
         fila[`PrecioTachado_${canal}`] = redondear(p + cfg.tachadoMas, 2);
       }
+      if (cfg.sinDescuentoGeneral) fila['PrecioReal'] = null;
       if (cfg.tachadoGeneralMaxCanal) {
         const tachados = (cfg.canales ?? [])
           .map(({ canal }) => fila[`PrecioTachado_${canal}`])
           .filter((v): v is number => typeof v === 'number');
-        if (tachados.length) fila['PrecioTachado'] = Math.max(fila['PrecioTachado'] as number, ...tachados);
+        if (tachados.length) fila['PrecioTachado'] = Math.max(...tachados);
       }
     }
 

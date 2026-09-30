@@ -38,7 +38,9 @@ export type BloqueCfg = {
   descuentosCantidad?: Record<string, number>;
   shippingGroupPorModelo?: Record<string, string>;
   /** Ofertas: precio por canal/pais (campos PrecioReal_{canal} y PrecioTachado_{canal}). */
-  canales?: { canal: string; pais: string; precioDe?: string }[];
+  canales?: { canal: string; pais: string; precioDe?: string; rebaja?: number }[];
+  /** Ofertas: deja vacio el discount-price general (solo cuentan los de canal). */
+  sinDescuentoGeneral?: boolean;
   /** Ofertas: pais cuyo precio se usa en un canal sin precio propio (si no, canal vacio). */
   canalSinPrecio?: string;
   /** Ofertas: price general = el price (tachado) mas alto de los canales. */
@@ -121,11 +123,14 @@ export const MARKETPLACES: Marketplace[] = [
       // ALL/FR/IT de la hoja Ofertas, las actualiza el CSV). Portugal lleva el de Espana,
       // y un pais sin precio propio tambien (ningun canal queda vacio).
       canales: [
-        { canal: '001', pais: 'FR' },
-        { canal: '002', pais: 'ES' },
-        { canal: '003', pais: 'PT', precioDe: 'ES' },
-        { canal: '005', pais: 'IT' },
+        { canal: '001', pais: 'FR', rebaja: 40 },
+        { canal: '002', pais: 'ES', rebaja: 30 },
+        { canal: '003', pais: 'PT', precioDe: 'ES', rebaja: 30 },
+        { canal: '005', pais: 'IT', rebaja: 40 },
       ],
+      // discount-price de canal = precio del pais - rebaja (FR/IT 40, ES/PT 30; 30/09/2026).
+      // El discount-price general va vacio.
+      sinDescuentoGeneral: true,
       preciosPaisDesde: ['LeroyMerlin'],
       canalSinPrecio: 'ES',
       // price de cada canal (tachado) = su discount-price + 30 EUR.
