@@ -164,16 +164,29 @@ El maestro incluido está en `public/datos/FICHERO_MAESTRO2.xlsx`. Para que tu
 equipo vea una versión nueva, reemplaza ese fichero y haz push: Vercel redespliega
 solo. Mientras tanto, cada persona puede subir el suyo con "Fichero maestro".
 
-## Reglas de Makro para fichas de producto (multi_template)
+## Makro · fichas de producto (multi_template)
 
-La web todavía no genera las fichas de producto de Makro, pero cuando se añada
-debe cumplir lo que Makro ya ha rechazado:
+Tarjeta "Makro · fichas de producto": genera `multi_template {ES,IT,FR,DE,NL_PT}.xlsx`
+(PT y NL van juntos) desde el maestro. Motor `src/engine/makroFichas.ts`, normas en
+`src/config/makroFichas.ts`.
 
-- `Product name XX`: **máximo 150 caracteres** (ErrorPV0602). En IT se acorta
-  quitando "di alta qualità".
-- `Instruction manual file XX`: **nunca enlaces de Google Drive** (ErrorIM02).
-  Dejarlo vacío o usar Cloudinary.
-- `Product safety instructions XX` obligatorio (GPSR, ERROR-0097).
-- Key features distintas de la descripción (ErrorKF01) y sin contactos/redes
-  en la descripción (ErrorPD02).
-- Categoría siempre `f08b9fab-b6b0-40b7-bd95-e36dc73881f0`.
+- Del **maestro**: nombre, descripción, imágenes 2-5, color, país, medidas, peso, serie.
+- De **lo ya enviado a Makro** (`public/datos/makro_fichas.json`): key features aceptadas,
+  textos NL, medidas de embalaje, imagen principal limpia. Un producto sin ficha copia la
+  de otro color del mismo modelo y lo avisa.
+- Plantillas vacías en `public/plantillas/Makro/multi_template *.xlsx`.
+- Tras enviar a Makro fichas nuevas o corregidas, regenerar ambas cosas con
+  `npx tsx scripts/extraer-fichas-makro.ts` (lee los multi_template del escritorio).
+- Prueba: `npx tsx scripts/probar-fichas-makro.ts <carpeta> [todos|taquillas|bancos|nuevos]`.
+
+Normas que aplica (rechazos reales de Makro):
+
+- `Product name XX`: **máximo 150 caracteres** (ErrorPV0602). Si el del maestro no cabe se
+  usa el ya aceptado; si no hay, se quita relleno ("di alta qualità"...) y se corta.
+- **Nunca enlaces de Google Drive** (ErrorIM02): se vacían (p. ej. el manual).
+- `Product safety instructions XX` siempre relleno (GPSR, ERROR-0097).
+- Sin párrafos de contacto/redes/postventa en la descripción (ErrorPD02).
+- Key features distintas de la descripción (ErrorKF01): se usan las ya aceptadas.
+- Categoría de taquillas siempre `f08b9fab-b6b0-40b7-bd95-e36dc73881f0`; bancos
+  `dda37f43-8bdd-43ad-9fa4-79461e69571e`. Color en español (madera → marrón, antracita → gris).
+

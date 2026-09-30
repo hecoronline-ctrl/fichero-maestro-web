@@ -8,6 +8,8 @@ import { repartirCsv } from './engine/csv';
 import { PAISES_AMAZON, generarAmazon } from './engine/amazon';
 import { generarAmazonEsLoader } from './engine/amazonLoader';
 import { aplicarPreciosYStock } from './engine/ofertas';
+import { FICHEROS_FICHAS, generarFichasMakro } from './engine/makroFichas';
+import type { FichasEnviadas, FiltroFichas } from './engine/makroFichas';
 import { blobXlsx, descargar, fetchAsset } from './engine/excel';
 import { CLAVE_MAESTRO, borrar, claveMakro, guardar, leer } from './store';
 import Productos from './Productos';
@@ -172,6 +174,13 @@ export default function App() {
         {vista === 'generar' && (
           <>
             <Generador
+              maestro={maestro}
+              ocupado={ocupado}
+              setOcupado={setOcupado}
+              log={log}
+              onFicheros={setFicheros}
+            />
+            <FichasMakroPanel
               maestro={maestro}
               ocupado={ocupado}
               setOcupado={setOcupado}
@@ -477,6 +486,103 @@ function MakroPanel(props: {
         </button>
         <button className="secundario" onClick={restablecer} disabled={props.ocupado}>
           Restablecer plantillas
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// ------------------------------------------------------- makro · fichas
+
+const FILTROS_FICHAS: { id: FiltroFichas; nombre: string }[] = [
+  { id: 'todos', nombre: 'Todos' },
+  { id: 'taquillas', nombre: 'Taquillas' },
+  { id: 'bancos', nombre: 'Bancos' },
+  { id: 'nuevos', nombre: 'Solo los que no están en Makro' },
+];
+
+function FichasMakroPanel(props: {
+  maestro: Maestro | null;
+  ocupado: boolean;
+  setOcupado: (b: boolean) => void;
+  log: (t: string, tipo?: Linea['tipo']) => void;
+  onFicheros: (f: Fichero[]) => void;
+}) {
+  const [fichero, setFichero] = useState('Todos');
+  const [filtro, setFiltro] = useState<FiltroFichas>('todos');
+
+  const generar = async () => {
+    if (!props.maestro) return;
+    props.setOcupado(true);
+    const salidas: Fichero[] = [];
+    try {
+      const enviadas = JSON.parse(
+        new TextDecoder().decode(await fetchAsset('datos/makro_fichas.json')),
+      ) as FichasEnviadas;
+      const lista = fichero === 'Todos' ? FICHEROS_FICHAS : [fichero];
+      for (const f of lista) {
+        try {
+          const plantilla = await fetchAsset(`plantillas/Makro/multi_template ${f}.xlsx`);
+          const r = generarFichasMakro(f, plantilla, props.maestro.catalogo, enviadas, filtro);
+          if (r.filas === 0) {
+            props.log(`Makro fichas ${f}: ningún producto con ese filtro.`);
+            continue;
+          }
+          salidas.push({ nombre: r.nombre, blob: r.blob });
+          props.log(
+            `Makro fichas ${f}: ${r.filas} productos → ${r.nombre}`,
+            r.errores.length ? 'error' : 'ok',
+          );
+          for (const e of r.errores) props.log(`   ERROR: ${e}`, 'error');
+          for (const a of r.avisos) props.log(`   aviso: ${a}`);
+        } catch (e) {
+          props.log(`Makro fichas ${f}: ${mensaje(e)}`, 'error');
+        }
+      }
+      props.onFicheros(salidas);
+      if (salidas.length === 1) descargar(salidas[0].blob, salidas[0].nombre);
+    } catch (e) {
+      props.log(`Makro fichas: ${mensaje(e)}`, 'error');
+    } finally {
+      props.setOcupado(false);
+    }
+  };
+
+  return (
+    <section className="tarjeta">
+      <h2>Makro · fichas de producto</h2>
+      <p className="pista">
+        Crea el <code>multi_template</code> de cada país desde el maestro, con las normas de Makro:
+        nombre de 150 caracteres como máximo, sin enlaces de Google Drive, instrucciones de
+        seguridad (GPSR), sin contacto ni redes en la descripción y las key features ya aceptadas.
+        Portugal y Holanda van en el mismo fichero (<code>NL_PT</code>).
+      </p>
+      <div className="fila">
+        <label>
+          País
+          <select value={fichero} onChange={(e) => setFichero(e.target.value)}>
+            <option value="Todos">Todos</option>
+            {FICHEROS_FICHAS.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Productos
+          <select value={filtro} onChange={(e) => setFiltro(e.target.value as FiltroFichas)}>
+            {FILTROS_FICHAS.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.nombre}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <div className="fila">
+        <button onClick={generar} disabled={props.ocupado || !props.maestro}>
+          Generar fichas
         </button>
       </div>
     </section>
