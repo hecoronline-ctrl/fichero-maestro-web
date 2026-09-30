@@ -339,7 +339,10 @@ function Generador(props: {
   const portal = getMarketplace(portalId)!;
   const tipos = tiposDe(portal);
   const tipoValido = tipos.includes(tipo) ? tipo : tipos[0];
-  const paises = paisesDe(portal, tipoValido);
+  // Leroy catalogo: opcion ALL = los ficheros de todos los paises de golpe.
+  const reales = paisesDe(portal, tipoValido);
+  const conAll = portal.familia === 'Mirakl' && reales.length > 1 && !reales.includes('ALL');
+  const paises = conAll ? [...reales, 'ALL'] : reales;
   const [pais, setPais] = useState(paises[0]);
   const paisValido = paises.includes(pais) ? pais : paises[0];
 
@@ -428,7 +431,13 @@ function Generador(props: {
       </div>
       <div className="fila">
         <button
-          onClick={() => ejecutar([{ tipo: tipoValido, pais: paisValido }])}
+          onClick={() =>
+            ejecutar(
+              conAll && paisValido === 'ALL'
+                ? reales.map((p) => ({ tipo: tipoValido, pais: p }))
+                : [{ tipo: tipoValido, pais: paisValido }],
+            )
+          }
           disabled={props.ocupado || !props.maestro}
         >
           Generar
