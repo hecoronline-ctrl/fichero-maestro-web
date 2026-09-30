@@ -117,7 +117,8 @@ export const MARKETPLACES: Marketplace[] = [
       filaCabecera: 2,
       filaDatos: 3,
       skuCampo: 'sku_leroy',
-      // Canales de Leroy (lo confirmo el usuario el 30/09/2026):
+      // "Regla Leroy de precios nº1" (asi la llama el usuario, 30/09/2026).
+      // Canales de Leroy:
       //   001 = Francia, 002 = Espana, 003 = Portugal, 005 = Italia.
       // discount-price de cada canal = precio que queremos en ese pais (filas LeroyMerlin
       // ALL/FR/IT de la hoja Ofertas, las actualiza el CSV). Portugal lleva el de Espana,
