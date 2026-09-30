@@ -82,6 +82,7 @@ export function buildOfferRows(
     }
 
     const fila: FilaOferta = { ...o, SKU: sku };
+    if (cfg.plazoEnvio !== undefined) fila['PlazoEnvio'] = cfg.plazoEnvio;
 
     // Precio real (descuento) y tachado, general y por canal/pais.
     if (cfg.tachadoMas !== undefined) {

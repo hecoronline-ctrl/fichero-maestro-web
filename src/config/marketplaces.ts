@@ -61,6 +61,8 @@ export type BloqueCfg = {
   preciosPaisDesde?: string[];
   /** Ofertas: precio tachado = precio real + esto (campos PrecioReal / PrecioTachado). */
   tachadoMas?: number;
+  /** Ofertas: plazo de envio (dias) fijo para todos los productos. */
+  plazoEnvio?: number;
   /** Ofertas: filas de la hoja Ofertas de este marketplace (por defecto, el id del portal). */
   marketplaceOfertas?: string;
   /** Catalogo y ofertas: solo los productos de estos tipos del maestro (columna `tipo`). */
@@ -87,6 +89,8 @@ export type Marketplace = {
 const LEROY_OFERTAS: BloqueCfg = {
   // Todas las ofertas de Leroy salen de las filas LeroyMerlin de la hoja Ofertas.
   marketplaceOfertas: 'LeroyMerlin',
+  // Plazo de envio: 2 dias para TODOS (el 003 venia vacio; norma del usuario 30/09/2026).
+  plazoEnvio: 2,
     // Un unico fichero de ofertas para los 4 paises (plantilla Mirakl de 97 columnas
     // descargada de Leroy el 28/09/2026). Cabecera por CODIGO (fila 2), datos desde la 3.
     paises: ['ALL'],
