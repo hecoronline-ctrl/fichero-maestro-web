@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { MARKETPLACES, getMarketplace, getPaises } from './config/marketplaces';
+import type { Marketplace } from './config/marketplaces';
 import { readMaestro } from './engine/maestro';
 import type { Maestro } from './engine/maestro';
 import { generar } from './engine/generar';
 import { anadirFilasQueFaltan, generarMakro } from './engine/makro';
 import { esCsvCombinado } from './engine/csv';
+import { FICHEROS_FICHAS, generarFichasMakro } from './engine/makroFichas';
+import type { FichasEnviadas } from './engine/makroFichas';
 import { PAISES_AMAZON, generarAmazon } from './engine/amazon';
 import { generarAmazonEsLoader } from './engine/amazonLoader';
 import { aplicarPreciosYStock } from './engine/ofertas';
@@ -14,7 +17,8 @@ import Productos from './Productos';
 import './App.css';
 
 const MAESTRO_INCLUIDO = 'datos/FICHERO_MAESTRO2.xlsx';
-const PORTALES = MARKETPLACES.filter((m) => !m.flujoPropio);
+// Makro va en el mismo selector (Catalogo = fichas multi_template, Ofertas = offer_template).
+const PORTALES = MARKETPLACES;
 const PAISES_MAKRO = getMarketplace('Makro')!.paises;
 
 type Fichero = { nombre: string; blob: Blob };
@@ -187,13 +191,6 @@ export default function App() {
               log={log}
               onFicheros={setFicheros}
             />
-            <MakroPanel
-              maestro={maestro}
-              ocupado={ocupado}
-              setOcupado={setOcupado}
-              log={log}
-              onFicheros={setFicheros}
-            />
             <AmazonPanel
               maestro={maestro}
               ocupado={ocupado}
@@ -299,6 +296,19 @@ function PreciosStock(props: {
 
 // ---------------------------------------------------------------- generador
 
+type Tipo = 'catalogo' | 'ofertas';
+type Caso = { tipo: Tipo; pais: string };
+
+/** Tipos y paises de un portal. Makro no sale del config generico (flujo propio). */
+function tiposDe(portal: Marketplace): Tipo[] {
+  if (portal.id === 'Makro') return ['catalogo', 'ofertas'];
+  return (['catalogo', 'ofertas'] as const).filter((t) => portal[t]);
+}
+function paisesDe(portal: Marketplace, tipo: Tipo): string[] {
+  if (portal.id === 'Makro') return tipo === 'catalogo' ? FICHEROS_FICHAS : PAISES_MAKRO;
+  return getPaises(portal, tipo);
+}
+
 function Generador(props: {
   maestro: Maestro | null;
   ocupado: boolean;
@@ -307,28 +317,39 @@ function Generador(props: {
   onFicheros: (f: Fichero[]) => void;
 }) {
   const [portalId, setPortalId] = useState(PORTALES[0].id);
-  const [tipo, setTipo] = useState<'catalogo' | 'ofertas'>('catalogo');
+  const [tipo, setTipo] = useState<Tipo>('catalogo');
 
   const portal = getMarketplace(portalId)!;
-  const tipos = (['catalogo', 'ofertas'] as const).filter((t) => portal[t]);
+  const tipos = tiposDe(portal);
   const tipoValido = tipos.includes(tipo) ? tipo : tipos[0];
-  const paises = getPaises(portal, tipoValido);
+  const paises = paisesDe(portal, tipoValido);
   const [pais, setPais] = useState(paises[0]);
   const paisValido = paises.includes(pais) ? pais : paises[0];
 
-  const ejecutar = async (casos: { tipo: 'catalogo' | 'ofertas'; pais: string }[]) => {
+  const ejecutar = async (casos: Caso[]) => {
     if (!props.maestro) return;
     props.setOcupado(true);
     const salidas: Fichero[] = [];
     try {
+      const makro = portal.id === 'Makro' ? await prepararMakro(casos, props.log) : null;
+      if (makro === false) return;
       for (const caso of casos) {
+        const etiqueta = `${portal.nombre} ${caso.pais} ${caso.tipo}`;
         try {
+          if (makro) {
+            const f =
+              caso.tipo === 'ofertas'
+                ? await ofertasMakro(caso.pais, props.maestro, makro.csv, props.log)
+                : fichasMakro(caso.pais, props.maestro, makro.plantillas!, makro.enviadas!, props.log);
+            if (f) salidas.push(f);
+            continue;
+          }
           const r = await generar(portal, caso.tipo, caso.pais, props.maestro);
           salidas.push({ nombre: r.nombre, blob: r.blob });
-          props.log(`${portal.nombre} ${caso.pais} ${caso.tipo}: ${r.filas} filas → ${r.nombre}`, 'ok');
+          props.log(`${etiqueta}: ${r.filas} filas → ${r.nombre}`, 'ok');
           for (const a of r.avisos) props.log(`   aviso: ${a}`);
         } catch (e) {
-          props.log(`${portal.nombre} ${caso.pais} ${caso.tipo}: ${mensaje(e)}`, 'error');
+          props.log(`${etiqueta}: ${mensaje(e)}`, 'error');
         }
       }
       props.onFicheros(salidas);
@@ -339,8 +360,8 @@ function Generador(props: {
   };
 
   const todos = () => {
-    const casos: { tipo: 'catalogo' | 'ofertas'; pais: string }[] = [];
-    for (const t of tipos) for (const p of getPaises(portal, t)) casos.push({ tipo: t, pais: p });
+    const casos: Caso[] = [];
+    for (const t of tipos) for (const p of paisesDe(portal, t)) casos.push({ tipo: t, pais: p });
     return casos;
   };
 
@@ -360,10 +381,7 @@ function Generador(props: {
         </label>
         <label>
           Tipo
-          <select
-            value={tipoValido}
-            onChange={(e) => setTipo(e.target.value as 'catalogo' | 'ofertas')}
-          >
+          <select value={tipoValido} onChange={(e) => setTipo(e.target.value as Tipo)}>
             {tipos.map((t) => (
               <option key={t} value={t}>
                 {t === 'catalogo' ? 'Catálogo' : 'Ofertas'}
@@ -403,106 +421,91 @@ function Generador(props: {
 
 // ---------------------------------------------------------------- makro
 
-function MakroPanel(props: {
-  maestro: Maestro | null;
-  ocupado: boolean;
-  setOcupado: (b: boolean) => void;
-  log: (t: string, tipo?: Linea['tipo']) => void;
-  onFicheros: (f: Fichero[]) => void;
-}) {
-  const [pais, setPais] = useState('Todos');
+type DatosMakro = {
+  /** Ultimo CSV de precios y stock aplicado en Datos de origen. */
+  csv: string;
+  plantillas?: Map<string, ArrayBuffer>;
+  enviadas?: FichasEnviadas;
+};
 
-  const aplicar = async () => {
-    if (!props.maestro) return;
-    // Precio y stock: el ultimo CSV aplicado en "Datos de origen".
+/** Carga lo que necesita Makro para los casos pedidos. false = no se puede seguir. */
+async function prepararMakro(
+  casos: Caso[],
+  log: (t: string, tipo?: Linea['tipo']) => void,
+): Promise<DatosMakro | false> {
+  const datos: DatosMakro = { csv: '' };
+  if (casos.some((c) => c.tipo === 'ofertas')) {
+    // Makro no se reconstruye desde el maestro: su plantilla ya trae los precios
+    // buenos. Solo cambia lo que venga en el ultimo CSV aplicado en Datos de origen.
     const guardado = await leer(CLAVE_CSV);
     if (!guardado) {
-      props.log(
-        'Makro: primero sube el CSV de precios y stock en Datos de origen → Precios y stock.',
-        'error',
-      );
-      return;
+      log('Makro ofertas: primero sube el CSV de precios y stock en Datos de origen.', 'error');
+      return false;
     }
-    const texto = new TextDecoder().decode(guardado.bytes);
-    props.log(`Makro: precios y stock de ${guardado.nombre}.`);
-    props.setOcupado(true);
-    const salidas: Fichero[] = [];
-    try {
-      const csvPrecio = texto;
-      const csvStock = texto;
-      const lista = pais === 'Todos' ? PAISES_MAKRO : [pais];
-
-      for (const p of lista) {
-        try {
-          // La base es la plantilla ya actualizada si existe; si no, la incluida.
-          const guardada = await leer(claveMakro(p));
-          const incluida = await fetchAsset(`plantillas/Makro/offer_template ${p}.xlsx`);
-          let base: ArrayBuffer | Uint8Array = incluida;
-          if (guardada) {
-            // Si la web trae productos nuevos (p. ej. los bancos), se suman a la guardada.
-            const m = anadirFilasQueFaltan(guardada.bytes, incluida);
-            base = m.bytes;
-            if (m.anadidas.length) {
-              props.log(`Makro ${p}: ${m.anadidas.length} productos nuevos añadidos a tu plantilla.`);
-            }
-          }
-          const r = generarMakro(p, base, props.maestro.catalogo, csvPrecio, csvStock);
-          if (!r) {
-            props.log(`Makro ${p}: sin datos en los archivos → no se toca.`);
-            continue;
-          }
-          // La plantilla actualizada pasa a ser la base de la proxima vez.
-          await guardar(claveMakro(p), `offer_template ${p}.xlsx`, r.bytes);
-          salidas.push({ nombre: r.nombre, blob: r.blob });
-          props.log(`Makro ${p}: ${r.precios} precios y ${r.stocks} stocks → ${r.nombre}`, 'ok');
-        } catch (e) {
-          props.log(`Makro ${p}: ${mensaje(e)}`, 'error');
-        }
+    datos.csv = new TextDecoder().decode(guardado.bytes);
+    log(`Makro ofertas: precios y stock de ${guardado.nombre}.`);
+  }
+  if (casos.some((c) => c.tipo === 'catalogo')) {
+    datos.enviadas = JSON.parse(
+      new TextDecoder().decode(await fetchAsset('datos/makro_fichas.json')),
+    ) as FichasEnviadas;
+    datos.plantillas = new Map();
+    for (const c of casos) {
+      if (c.tipo === 'catalogo' && !datos.plantillas.has(c.pais)) {
+        datos.plantillas.set(
+          c.pais,
+          await fetchAsset(`plantillas/Makro/multi_template ${c.pais}.xlsx`),
+        );
       }
-      props.onFicheros(salidas);
-      if (salidas.length === 1) descargar(salidas[0].blob, salidas[0].nombre);
-    } finally {
-      props.setOcupado(false);
     }
-  };
+  }
+  return datos;
+}
 
-  const restablecer = async () => {
-    for (const p of PAISES_MAKRO) await borrar(claveMakro(p));
-    props.log('Plantillas de Makro restablecidas a las incluidas con la web.', 'ok');
-  };
+/** Ofertas Makro de un pais: plantilla guardada (o la incluida) + CSV. */
+async function ofertasMakro(
+  p: string,
+  maestro: Maestro,
+  csv: string,
+  log: (t: string, tipo?: Linea['tipo']) => void,
+): Promise<Fichero | null> {
+  // La base es la plantilla ya actualizada si existe; si no, la incluida.
+  const guardada = await leer(claveMakro(p));
+  const incluida = await fetchAsset(`plantillas/Makro/offer_template ${p}.xlsx`);
+  let base: ArrayBuffer | Uint8Array = incluida;
+  if (guardada) {
+    // Si la web trae productos nuevos (p. ej. los bancos), se suman a la guardada.
+    const m = anadirFilasQueFaltan(guardada.bytes, incluida);
+    base = m.bytes;
+    if (m.anadidas.length) log(`Makro ${p}: ${m.anadidas.length} productos nuevos añadidos a tu plantilla.`);
+  }
+  const r = generarMakro(p, base, maestro.catalogo, csv, csv);
+  if (!r) {
+    log(`Makro ${p} ofertas: el CSV no trae datos de este país → no se toca.`);
+    return null;
+  }
+  // La plantilla actualizada pasa a ser la base de la proxima vez.
+  await guardar(claveMakro(p), `offer_template ${p}.xlsx`, r.bytes);
+  log(`Makro ${p} ofertas: ${r.precios} precios y ${r.stocks} stocks → ${r.nombre}`, 'ok');
+  return { nombre: r.nombre, blob: r.blob };
+}
 
-  return (
-    <section className="tarjeta">
-      <h2>Makro · precio y stock</h2>
-      {/* Makro no se reconstruye desde el maestro: su plantilla ya trae los precios
-          buenos. Solo se cambia lo que venga en el ultimo CSV aplicado en Datos de
-          origen; lo que no aparezca, no se toca. */}
-      <p className="pista">
-        Usa los precios y el stock que hayas aplicado en Datos de origen.
-      </p>
-      <div className="fila">
-        <label>
-          País
-          <select value={pais} onChange={(e) => setPais(e.target.value)}>
-            <option value="Todos">Todos</option>
-            {PAISES_MAKRO.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
-      <div className="fila">
-        <button onClick={aplicar} disabled={props.ocupado || !props.maestro}>
-          Generar
-        </button>
-        <button className="secundario" onClick={restablecer} disabled={props.ocupado}>
-          Restablecer plantillas
-        </button>
-      </div>
-    </section>
+/** Catalogo Makro (fichas de producto multi_template) de un fichero de pais. */
+function fichasMakro(
+  f: string,
+  maestro: Maestro,
+  plantillas: Map<string, ArrayBuffer>,
+  enviadas: FichasEnviadas,
+  log: (t: string, tipo?: Linea['tipo']) => void,
+): Fichero {
+  const r = generarFichasMakro(f, plantillas.get(f)!, maestro.catalogo, enviadas);
+  log(
+    `Makro ${f} catálogo: ${r.filas} productos → ${r.nombre}`,
+    r.errores.length ? 'error' : 'ok',
   );
+  for (const e of r.errores) log(`   ERROR: ${e}`, 'error');
+  for (const a of r.avisos) log(`   aviso: ${a}`);
+  return { nombre: r.nombre, blob: r.blob };
 }
 
 // ---------------------------------------------------------------- amazon
