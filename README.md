@@ -80,16 +80,17 @@ npx tsx scripts/probar-ofertas.ts <maestro.xlsx> <stock.csv> <precios.csv> [Mark
 
 ## Amazon
 
-- **ES · Precio y stock**: plantilla oficial de Seller Central
-  `public/plantillas/Amazon/ListingLoader_ES.xlsm` ("añadir ofertas a productos que ya
-  se venden en Amazon"). Se rellena solo la hoja `Plantilla` desde la fila 7; el resto
-  del `.xlsm` queda igual. Motor: `src/engine/amazonLoader.ts`.
+- **ES** con las plantillas oficiales de Seller Central (01/10/2026): **Catálogo** =
+  `public/plantillas/Amazon/ListingLoader_ES.xlsm` (listing de productos que ya existen +
+  peso, medidas, país de origen) y **Ofertas** = `PriceAndQuantity_ES.xlsm` (precio, stock,
+  plazo, envío). Se rellena solo la hoja `Plantilla` desde la fila 7; el resto del `.xlsm`
+  queda igual. Motor: `src/engine/amazonLoader.ts` (`generarAmazonEs`).
   - SKU y ASIN: columnas `amazon_sku_es` / `amazon_asin_es` del maestro. Sin SKU la
     referencia no sale (un SKU inventado crearía una oferta duplicada).
   - Precio, stock y plazo: hoja Ofertas (Amazon ES; si no hay, otro portal de España).
   - Plantilla de envío por modelo: `AMAZON_ES_ENVIO` en `src/config/marketplaces.ts`.
-  - Prueba: `npx tsx scripts/probar-amazon-es.ts <salida.xlsm> [--sku-prueba]`.
-- **El resto** (catálogo y los demás países: IT, FR, UK, DE) sale como flat file `.txt` sin validar:
+  - Prueba: `npx tsx scripts/probar-amazon-es.ts <salida.xlsm> [catalogo|ofertas]`.
+- **Los demás países** (IT, FR, UK, DE) salen como flat file `.txt` sin validar:
   faltan las plantillas de esos países y sus SKU/ASIN.
 - **Portugal no está**: Amazon no tiene tienda en PT; los clientes portugueses compran en amazon.es.
 

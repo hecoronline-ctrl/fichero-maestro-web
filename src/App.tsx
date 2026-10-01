@@ -9,7 +9,7 @@ import { esCsvCombinado } from './engine/csv';
 import { FICHEROS_FICHAS, generarFichasMakro } from './engine/makroFichas';
 import type { FichasEnviadas } from './engine/makroFichas';
 import { PAISES_AMAZON, generarAmazon } from './engine/amazon';
-import { generarAmazonEsLoader } from './engine/amazonLoader';
+import { PLANTILLAS_AMAZON_ES, generarAmazonEs } from './engine/amazonLoader';
 import { aplicarPreciosYStock } from './engine/ofertas';
 import { blobXlsx, descargar, fetchAsset } from './engine/excel';
 import { CLAVE_CSV, CLAVE_MAESTRO, borrar, claveMakro, guardar, leer } from './store';
@@ -565,11 +565,8 @@ function AmazonPanel(props: {
         try {
           // Amazon ES precio y stock: plantilla oficial de Seller Central (ListingLoader)
           const r =
-            tipo === 'ofertas' && p === 'ES'
-              ? generarAmazonEsLoader(
-                  await fetchAsset('plantillas/Amazon/ListingLoader_ES.xlsm'),
-                  props.maestro,
-                )
+            p === 'ES'
+              ? generarAmazonEs(tipo, await fetchAsset(PLANTILLAS_AMAZON_ES[tipo]), props.maestro)
               : generarAmazon(tipo, p, props.maestro);
           salidas.push({ nombre: r.nombre, blob: r.blob });
           props.log(`Amazon ${p} ${tipo}: ${r.filas} filas → ${r.nombre}`, 'ok');
@@ -589,9 +586,10 @@ function AmazonPanel(props: {
     <section className="tarjeta">
       <h2>Amazon</h2>
       <p className="pista">
-        <strong>España · Ofertas</strong> sale en la plantilla oficial de Seller Central
-        (<code>ListingLoader.xlsm</code>, para productos que ya están en Amazon) con las
-        referencias que tienen SKU de Amazon ES en el maestro.
+        <strong>España</strong> sale en las plantillas oficiales de Seller Central, para los
+        productos que ya están en Amazon y tienen SKU de Amazon ES en el maestro:{' '}
+        <strong>Catálogo</strong> = <code>ListingLoader</code> (listing + peso, medidas y origen) y{' '}
+        <strong>Ofertas</strong> = <code>PriceAndQuantity</code> (precio, stock, plazo y envío).
       </p>
       <div className="fila">
         <label>
