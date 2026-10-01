@@ -61,6 +61,12 @@ export type BloqueCfg = {
   preciosPaisDesde?: string[];
   /** Ofertas: precio tachado = precio real + esto (campos PrecioReal / PrecioTachado). */
   tachadoMas?: number;
+  /**
+   * Ofertas con stock global (Leroy): quantity = el stock MAS ALTO de los paises, y
+   * exclusive-channels = solo los canales cuyo pais tiene stock (> 0). Cada canal toma
+   * el stock de su almacen: 'ES' = Espana (vale tambien para Portugal), 'FR', 'IT'.
+   */
+  stockPorCanal?: { canal: string; almacen: string }[];
   /** Ofertas: plazo de envio (dias) fijo para todos los productos. */
   plazoEnvio?: number;
   /** Ofertas: filas de la hoja Ofertas de este marketplace (por defecto, el id del portal). */
@@ -91,6 +97,13 @@ const LEROY_OFERTAS: BloqueCfg = {
   marketplaceOfertas: 'LeroyMerlin',
   // Plazo de envio: 2 dias para TODOS (el 003 venia vacio; norma del usuario 30/09/2026).
   plazoEnvio: 2,
+  // Stock global (01/10/2026): ver stockPorCanal. Sin stock en ningun pais -> los 4 canales.
+  stockPorCanal: [
+    { canal: 'LMES', almacen: 'ES' },
+    { canal: 'LMFR', almacen: 'FR' },
+    { canal: 'LMIT', almacen: 'IT' },
+    { canal: 'LMPT', almacen: 'ES' },
+  ],
     // Un unico fichero de ofertas para los 4 paises (plantilla Mirakl de 97 columnas
     // descargada de Leroy el 28/09/2026). Cabecera por CODIGO (fila 2), datos desde la 3.
     paises: ['ALL'],
@@ -152,7 +165,7 @@ const LEROY_OFERTAS: BloqueCfg = {
       { literal: 'Standard', etiqueta: 'vat-lmes' },
       { literal: 'Standard', etiqueta: 'vat-lmpt' },
       { literal: 'ES', etiqueta: 'shipment-origin' },
-      { literal: 'LMES,LMFR,LMIT,LMPT', etiqueta: 'exclusive-channels' },
+      { campo: 'CanalesExclusivos', etiqueta: 'exclusive-channels' },
     ],
 };
 

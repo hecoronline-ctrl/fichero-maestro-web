@@ -55,6 +55,19 @@ export function buildOfferRows(
       precioPais.set(`${String(o['EAN'] ?? '').trim()}|${pa === 'ALL' ? 'ES' : pa}`, n);
     }
   }
+  // Stock de cada almacen por EAN (cualquier fila de la hoja Ofertas de ese pais: el
+  // CSV pone el mismo stock en todos los portales de un pais). ALL/ES/PT = Espana.
+  const stockAlmacen = new Map<string, number>();
+  if (cfg.stockPorCanal) {
+    for (const o of maestro.ofertas) {
+      const n = Number(o['Stock']);
+      if (isEmpty(o['Stock']) || !Number.isFinite(n)) continue;
+      const pa = String(o['Pais'] ?? '').trim().toUpperCase();
+      const alm = pa === 'ALL' || pa === 'PT' ? 'ES' : pa;
+      const k = `${String(o['EAN'] ?? '').trim()}|${alm}`;
+      stockAlmacen.set(k, Math.max(stockAlmacen.get(k) ?? 0, n));
+    }
+  }
   const sinCanal = new Map<string, number>();
 
   const filas: FilaOferta[] = [];
@@ -83,6 +96,16 @@ export function buildOfferRows(
 
     const fila: FilaOferta = { ...o, SKU: sku };
     if (cfg.plazoEnvio !== undefined) fila['PlazoEnvio'] = cfg.plazoEnvio;
+    // Stock global: el mas alto, y la oferta solo en los canales con stock.
+    if (cfg.stockPorCanal) {
+      const stocks = cfg.stockPorCanal.map(({ canal, almacen }) => ({
+        canal,
+        n: stockAlmacen.get(`${ean}|${almacen}`) ?? 0,
+      }));
+      const conStock = stocks.filter((s) => s.n > 0);
+      fila['Stock'] = Math.max(0, ...stocks.map((s) => s.n));
+      fila['CanalesExclusivos'] = (conStock.length ? conStock : stocks).map((s) => s.canal).join(',');
+    }
 
     // Precio real (descuento) y tachado, general y por canal/pais.
     if (cfg.tachadoMas !== undefined) {
