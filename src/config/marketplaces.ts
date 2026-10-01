@@ -351,7 +351,7 @@ export const MAKRO_SHIPPING: Record<string, string> = {
 
 /**
  * Amazon ES: plantilla de envio por modelo (nombres exactos de la cuenta, tal y como
- * salen en el desplegable del ListingLoader). 001 = S, 007/010 = M, 003/011 = L.
+ * salen en el desplegable del ListingLoader). 001 y bancos = S, 007/010 = M, 003/011 = L.
  */
 export const AMAZON_ES_ENVIO: Record<string, string> = {
   '001': 'Nannuk S (001-006-022)',
@@ -360,6 +360,9 @@ export const AMAZON_ES_ENVIO: Record<string, string> = {
   '011': 'Nannuk L (011)',
   // El 003 va en la L como el 011 (lo dijo el usuario el 01/10/2026).
   '003': 'Nannuk L (011)',
+  // Bancos de 90 y 150 cm en la S (usuario, 01/10/2026).
+  '090': 'Nannuk S (001-006-022)',
+  '150': 'Nannuk S (001-006-022)',
 };
 
 /** Descuentos por cantidad sobre el neto: 2+ -3%, 3+ -4%, 4+ -5%, 5+ -6%. */
